@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
@@ -42,6 +38,7 @@ export default function Register() {
     phone: "",
     password: "",
     confirmPassword: "",
+    role: "user",
   });
 
   // Handle input changes
@@ -74,8 +71,20 @@ export default function Register() {
       return;
     }
 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      setValidationError("Please enter a valid email address.");
+      return;
+    }
+
     if (!formData.phone.trim()) {
       setValidationError("Please enter your phone number.");
+      return;
+    }
+
+    if (!/^[0-9]{10,15}$/.test(formData.phone.trim())) {
+      setValidationError(
+        "Please enter a valid phone number (10–15 digits)."
+      );
       return;
     }
 
@@ -91,27 +100,36 @@ export default function Register() {
       return;
     }
 
-    const result = await register({
-      fullName: formData.fullName.trim(),
-      email: formData.email.trim(),
-      phone: formData.phone.trim(),
-      password: formData.password,
-      confirmPassword: formData.confirmPassword,
-      role: "user",
-    });
-
-    if (result.success) {
-      setFormData({
-        fullName: "",
-        email: "",
-        phone: "",
-        password: "",
-        confirmPassword: "",
+    try {
+      const result = await register({
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        role: formData.role,
       });
 
-      setTimeout(() => {
-        navigate("/login", { replace: true });
-      }, 1200);
+      if (result?.success) {
+        setFormData({
+          fullName: "",
+          email: "",
+          phone: "",
+          password: "",
+          confirmPassword: "",
+          role: "user",
+        });
+
+        setTimeout(() => {
+          navigate("/login", { replace: true });
+        }, 1200);
+      }
+    } catch (err) {
+      setValidationError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Registration failed. Please try again."
+      );
     }
   };
 
@@ -329,6 +347,39 @@ export default function Register() {
                 </div>
               </div>
 
+              {/* ROLE DROPDOWN */}
+              <div>
+                <label
+                  htmlFor="role"
+                  className="mb-2 block text-sm font-medium text-stone-700"
+                >
+                  Register as
+                </label>
+
+                <div className="relative">
+                  <User
+                    size={18}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+                  />
+
+                  <select
+                    id="role"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    disabled={loading}
+                    className="w-full appearance-none rounded-xl border border-stone-200 bg-[#fcfbf8] py-3 pl-11 pr-10 text-sm outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-700/10 disabled:opacity-60"
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+
+                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-stone-400">
+                    ▼
+                  </span>
+                </div>
+              </div>
+
               {/* PASSWORD */}
               <div>
                 <label
@@ -392,9 +443,7 @@ export default function Register() {
 
                   <input
                     id="confirmPassword"
-                    type={
-                      showConfirmPassword ? "text" : "password"
-                    }
+                    type={showConfirmPassword ? "text" : "password"}
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange}

@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -26,8 +27,10 @@ const Navbar = () => {
   const location = useLocation();
 
   const { isDark, toggleTheme } = useTheme();
+
   const { products: fetchedProducts = [], loading: productsLoading } =
     useAllProducts();
+
   const {
     categories: fetchedCategories = [],
     loading: categoriesLoading,
@@ -39,31 +42,63 @@ const Navbar = () => {
 
   const token = localStorage.getItem("token");
 
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch {
+      return null;
+    }
+  });
+
+  const isAdmin = user?.role === "admin";
+
+  useEffect(() => {
+    const updateUser = () => {
+      try {
+        setUser(JSON.parse(localStorage.getItem("user") || "null"));
+      } catch {
+        setUser(null);
+      }
+    };
+
+    window.addEventListener("storage", updateUser);
+
+    return () => window.removeEventListener("storage", updateUser);
+  }, []);
+
   const products = useMemo(() => {
     if (Array.isArray(fetchedProducts)) return fetchedProducts;
+
     if (Array.isArray(fetchedProducts?.products)) {
       return fetchedProducts.products;
     }
+
     if (Array.isArray(fetchedProducts?.data?.products)) {
       return fetchedProducts.data.products;
     }
+
     if (Array.isArray(fetchedProducts?.data)) {
       return fetchedProducts.data;
     }
+
     return [];
   }, [fetchedProducts]);
 
   const categories = useMemo(() => {
     if (Array.isArray(fetchedCategories)) return fetchedCategories;
+
     if (Array.isArray(fetchedCategories?.categories)) {
       return fetchedCategories.categories;
     }
+
     if (Array.isArray(fetchedCategories?.data?.categories)) {
       return fetchedCategories.data.categories;
     }
+
     if (Array.isArray(fetchedCategories?.data)) {
       return fetchedCategories.data;
     }
+
     return [];
   }, [fetchedCategories]);
 
@@ -81,7 +116,9 @@ const Navbar = () => {
     if (!query) return [];
 
     return products
-      .filter((product) => getProductName(product).toLowerCase().includes(query))
+      .filter((product) =>
+        getProductName(product).toLowerCase().includes(query)
+      )
       .slice(0, 6);
   }, [products, query]);
 
@@ -106,7 +143,9 @@ const Navbar = () => {
     if (id) {
       navigate(`/products/${id}`);
     } else {
-      navigate(`/products?search=${encodeURIComponent(getProductName(product))}`);
+      navigate(
+        `/products?search=${encodeURIComponent(getProductName(product))}`
+      );
     }
 
     setShowSuggestions(false);
@@ -129,6 +168,7 @@ const Navbar = () => {
     event.preventDefault();
 
     const value = search.trim();
+
     if (!value) return;
 
     const normalized = value.toLowerCase();
@@ -158,8 +198,14 @@ const Navbar = () => {
     }
 
     navigate(`/products?search=${encodeURIComponent(value)}`);
+
     setShowSuggestions(false);
     setSearch("");
+  };
+
+  const clearSearch = () => {
+    setSearch("");
+    setShowSuggestions(false);
   };
 
   const navLinks = [
@@ -170,29 +216,34 @@ const Navbar = () => {
   ];
 
   const surface = isDark
-    ? "bg-[#30352B] text-[#F5F0E6]"
+    ? "bg-[#14271C] text-[#EDF3E9]"
     : "bg-green-100 text-gray-800";
 
-  const borderColor = isDark ? "border-[#4A5142]" : "border-green-200";
+  const borderColor = isDark
+    ? "border-[#304638]"
+    : "border-green-200";
 
   const hoverColor = isDark
-    ? "hover:bg-[#424938]"
+    ? "hover:bg-[#263D2D]"
     : "hover:bg-green-200/70";
 
   const searchSurface = isDark
-    ? "border-[#59604F] bg-[#252A22] text-[#F5F0E6]"
+    ? "border-[#3A5140] bg-[#19291F] text-[#EDF3E9]"
     : "border-green-200 bg-white text-gray-800";
 
   const linkClass = (path) =>
     `rounded-full px-3 py-2 text-sm font-medium transition ${
       location.pathname === path
         ? isDark
-          ? "bg-[#424938] text-white"
+          ? "bg-[#304638] text-white"
           : "bg-white/80 text-green-800"
         : isDark
-          ? "text-[#E5E7DB] hover:bg-[#424938]"
+          ? "text-[#DCE8D8] hover:bg-[#263D2D]"
           : "text-gray-700 hover:bg-white/70 hover:text-green-800"
     }`;
+
+  const searchInputClass =
+    "navbar-search-input w-full min-w-0 flex-1 !border-0 !outline-none !ring-0 !shadow-none bg-transparent text-sm focus:!border-0 focus:!outline-none focus:!ring-0 focus:!shadow-none placeholder:opacity-60";
 
   return (
     <header
@@ -210,7 +261,7 @@ const Navbar = () => {
             <span
               className={`flex h-11 w-11 items-center justify-center rounded-full ${
                 isDark
-                  ? "bg-[#48523F] text-[#E4EACD]"
+                  ? "bg-[#416B49] text-[#EDF3E9]"
                   : "bg-green-700 text-white"
               }`}
             >
@@ -221,9 +272,10 @@ const Navbar = () => {
               <span className="block text-xl font-bold tracking-tight">
                 Clear Skin
               </span>
+
               <span
                 className={`text-[10px] tracking-[1.5px] ${
-                  isDark ? "text-gray-300" : "text-gray-600"
+                  isDark ? "text-[#B8C7B8]" : "text-gray-600"
                 }`}
               >
                 NATURALLY BEAUTIFUL
@@ -263,18 +315,15 @@ const Navbar = () => {
                   onFocus={() => setShowSuggestions(true)}
                   placeholder="Search skincare products..."
                   aria-label="Search products and categories"
-                  className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:opacity-60"
+                  className={searchInputClass}
                 />
 
                 {search && (
                   <button
                     type="button"
                     aria-label="Clear search"
-                    onClick={() => {
-                      setSearch("");
-                      setShowSuggestions(false);
-                    }}
-                    className="opacity-60 transition hover:opacity-100"
+                    onClick={clearSearch}
+                    className="shrink-0 opacity-60 transition hover:opacity-100"
                   >
                     <X size={16} />
                   </button>
@@ -307,9 +356,15 @@ const Navbar = () => {
 
                             return (
                               <button
-                                key={product._id || product.id || `${productName}-${index}`}
+                                key={
+                                  product._id ||
+                                  product.id ||
+                                  `${productName}-${index}`
+                                }
                                 type="button"
-                                onMouseDown={(event) => event.preventDefault()}
+                                onMouseDown={(event) =>
+                                  event.preventDefault()
+                                }
                                 onClick={() => openProduct(product)}
                                 className={`flex w-full items-center gap-3 rounded-xl p-2 text-left transition ${hoverColor}`}
                               >
@@ -356,14 +411,23 @@ const Navbar = () => {
 
                           {matchingCategories.map((category, index) => (
                             <button
-                              key={category._id || category.id || `${getCategoryName(category)}-${index}`}
+                              key={
+                                category._id ||
+                                category.id ||
+                                `${getCategoryName(category)}-${index}`
+                              }
                               type="button"
-                              onMouseDown={(event) => event.preventDefault()}
+                              onMouseDown={(event) =>
+                                event.preventDefault()
+                              }
                               onClick={() => openCategory(category)}
                               className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition ${hoverColor}`}
                             >
                               <span>{getCategoryName(category)}</span>
-                              <ArrowRight size={15} className="opacity-50" />
+                              <ArrowRight
+                                size={15}
+                                className="opacity-50"
+                              />
                             </button>
                           ))}
                         </div>
@@ -375,6 +439,7 @@ const Navbar = () => {
                             <p className="text-sm opacity-70">
                               No products or categories found.
                             </p>
+
                             <button
                               type="button"
                               onClick={handleSearch}
@@ -397,7 +462,9 @@ const Navbar = () => {
             <button
               type="button"
               onClick={toggleTheme}
-              aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+              aria-label={
+                isDark ? "Switch to light theme" : "Switch to dark theme"
+              }
               title={isDark ? "Light mode" : "Dark mode"}
               className={`flex h-10 w-10 items-center justify-center rounded-full transition ${hoverColor}`}
             >
@@ -434,10 +501,19 @@ const Navbar = () => {
               {token ? <UserRound size={20} /> : <LogIn size={20} />}
             </Link>
 
+            {/* Admin Dashboard */}
+            {isAdmin && (
+              <Link to="/admin" className={linkClass("/admin")}>
+                Admin Dashboard
+              </Link>
+            )}
+
             {/* Mobile Menu Button */}
             <button
               type="button"
-              onClick={() => setMobileMenuOpen((previous) => !previous)}
+              onClick={() =>
+                setMobileMenuOpen((previous) => !previous)
+              }
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
               className={`flex h-10 w-10 items-center justify-center rounded-full transition md:hidden ${hoverColor}`}
@@ -465,18 +541,15 @@ const Navbar = () => {
               onFocus={() => setShowSuggestions(true)}
               placeholder="Search skincare products..."
               aria-label="Search products and categories"
-              className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:opacity-60"
+              className={searchInputClass}
             />
 
             {search && (
               <button
                 type="button"
                 aria-label="Clear search"
-                onClick={() => {
-                  setSearch("");
-                  setShowSuggestions(false);
-                }}
-                className="opacity-60"
+                onClick={clearSearch}
+                className="shrink-0 opacity-60"
               >
                 <X size={16} />
               </button>
@@ -496,7 +569,11 @@ const Navbar = () => {
                 <>
                   {matchingProducts.map((product, index) => (
                     <button
-                      key={product._id || product.id || `${getProductName(product)}-${index}`}
+                      key={
+                        product._id ||
+                        product.id ||
+                        `${getProductName(product)}-${index}`
+                      }
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => openProduct(product)}
@@ -517,19 +594,25 @@ const Navbar = () => {
                         <span className="block truncate text-sm font-medium">
                           {getProductName(product)}
                         </span>
+
                         {product.price != null && (
                           <span className="text-xs opacity-70">
                             ₹{product.price}
                           </span>
                         )}
                       </span>
+
                       <ArrowRight size={15} className="opacity-50" />
                     </button>
                   ))}
 
                   {matchingCategories.map((category, index) => (
                     <button
-                      key={category._id || category.id || `${getCategoryName(category)}-${index}`}
+                      key={
+                        category._id ||
+                        category.id ||
+                        `${getCategoryName(category)}-${index}`
+                      }
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => openCategory(category)}
@@ -542,9 +625,19 @@ const Navbar = () => {
 
                   {matchingProducts.length === 0 &&
                     matchingCategories.length === 0 && (
-                      <p className="p-4 text-center text-sm opacity-70">
-                        No products or categories found.
-                      </p>
+                      <div className="p-4 text-center">
+                        <p className="text-sm opacity-70">
+                          No products or categories found.
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={handleSearch}
+                          className="mt-2 text-sm font-semibold text-green-600 hover:underline"
+                        >
+                          Search all products
+                        </button>
+                      </div>
                     )}
                 </>
               )}
@@ -574,6 +667,16 @@ const Navbar = () => {
               >
                 {token ? "My Profile" : "Login / Register"}
               </Link>
+
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`rounded-full px-3 py-2 text-sm font-medium transition ${hoverColor}`}
+                >
+                  Admin Dashboard
+                </Link>
+              )}
             </nav>
           </div>
         )}

@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Truck,
   Sparkles,
+  Heart
 } from "lucide-react";
 
 
@@ -167,83 +168,151 @@ export default function Home() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#faf9f5] text-stone-800">
       {/* HERO */}
-      <section className="overflow-hidden bg-[#e9f3e8]">
-        <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-10 sm:px-6 sm:py-14 md:grid-cols-2 md:gap-10 md:py-16 lg:px-8 lg:py-20">
-          <div className="text-center md:text-left">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-[11px] font-medium text-emerald-800 shadow-sm sm:mb-5 sm:px-4 sm:text-sm">
-              <Sparkles size={14} />
-              Clean skincare for everyday glow
-            </div>
+      
+<section className="relative overflow-hidden bg-[#101B15] text-[#EDF3E9]">
+  {/* Background Glow */}
+  <div className="pointer-events-none absolute -right-20 top-0 h-72 w-72 rounded-full bg-[#416B49]/20 blur-3xl" />
 
-            <h1 className="mx-auto max-w-xl text-4xl font-bold leading-tight text-emerald-950 sm:text-5xl md:text-5xl lg:mx-0 lg:text-6xl">
-              Healthy Skin,
-              <span className="block text-emerald-700">
-                Happier You.
-              </span>
-            </h1>
+  <div className="relative mx-auto grid max-w-7xl items-center gap-6 px-4 py-7 sm:px-6 sm:py-9 md:grid-cols-2 md:gap-8 lg:px-8 lg:py-11">
 
-            <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-stone-600 sm:mt-5 sm:text-base sm:leading-7 md:mx-0 lg:text-lg">
-              Discover gentle, effective skincare made to nourish,
-              hydrate and protect your skin every day.
-            </p>
+    {/* =========================
+        LEFT CONTENT
+    ========================= */}
+    <div className="relative z-10 text-center md:text-left">
 
-            <div className="mt-6 flex flex-col justify-center gap-3 sm:mt-7 sm:flex-row md:justify-start">
-              <Link
-                to="/products"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-800 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-900 sm:w-auto sm:text-base"
-              >
-                Shop Now <ArrowRight size={18} />
-              </Link>
+      {/* Badge */}
+      <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#405943] bg-[#1D3324] px-3 py-1.5 text-[11px] font-medium text-[#D5E8CB] sm:px-4 sm:py-2 sm:text-xs">
+        <Sparkles size={14} className="text-[#B9D7A9]" />
+        Clean skincare for everyday glow
+      </div>
 
-              <Link
-                to="/categories"
-                className="inline-flex w-full items-center justify-center rounded-full border border-emerald-800 px-6 py-3 text-sm font-semibold text-emerald-900 transition hover:bg-white sm:w-auto sm:text-base"
-              >
-                Explore Categories
-              </Link>
-            </div>
+      {/* Heading */}
+      <h1 className="mx-auto max-w-xl text-3xl font-bold leading-[1.1] tracking-tight text-[#F2F5ED] sm:text-4xl md:mx-0 md:text-4xl lg:text-5xl">
+        Healthy Skin,
+        <span className="block text-[#B9D7A9]">
+          Happier You.
+        </span>
+      </h1>
 
-            <div className="mt-6 flex flex-col items-center gap-3 text-xs text-stone-600 sm:mt-7 sm:flex-row sm:justify-center sm:gap-6 sm:text-sm md:justify-start">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={17} className="text-emerald-700" />
-                Quality Ingredients
-              </div>
+      {/* Description */}
+      <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-[#C4D1C1] sm:text-base md:mx-0">
+        Discover gentle, effective skincare made to nourish,
+        hydrate and protect your skin every day.
+      </p>
 
-              <div className="flex items-center gap-2">
-                <Truck size={17} className="text-emerald-700" />
-                Free Shipping ₹999+
-              </div>
-            </div>
-          </div>
+      {/* Buttons */}
+      <div className="mt-4 flex flex-col justify-center gap-2.5 sm:flex-row md:justify-start">
+        <Link
+          to="/products"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#B9D7A9] px-6 py-2.5 text-sm font-semibold text-[#142318] transition hover:bg-[#D0E6C3] sm:w-auto"
+        >
+          Shop Now
+          <ArrowRight size={17} />
+        </Link>
 
-          <div className="relative mx-auto w-full max-w-xl">
-            <div className="overflow-hidden rounded-3xl">
-              <img
-                src="https://images.unsplash.com/photo-1556229010-6c3f2c9ca5f8?auto=format&fit=crop&w=1000&q=85"
-                alt="Clear Skin skincare"
-                className="h-[300px] w-full object-cover sm:h-[400px] md:h-[440px] lg:h-[520px]"
-              />
-            </div>
+        <Link
+          to="/categories"
+          className="inline-flex w-full items-center justify-center rounded-full border border-[#789570] px-6 py-2.5 text-sm font-semibold text-[#EDF3E9] transition hover:bg-[#203B29] sm:w-auto"
+        >
+          Explore Categories
+        </Link>
+      </div>
 
-            <div className="absolute bottom-3 left-3 rounded-xl bg-white/95 p-3 shadow-lg backdrop-blur sm:bottom-5 sm:left-5 sm:rounded-2xl sm:p-4">
-              <p className="text-[10px] text-stone-500 sm:text-sm">
-                Loved by skincare lovers
+      {/* Features */}
+      <div className="mt-4 flex flex-col items-center justify-center gap-2.5 text-xs text-[#C4D1C1] sm:flex-row sm:gap-5 sm:text-sm md:justify-start">
+        <div className="flex items-center gap-1.5">
+          <ShieldCheck
+            size={16}
+            className="text-[#B9D7A9]"
+          />
+          Quality Ingredients
+        </div>
+
+        <span className="hidden h-5 border-l border-[#405543] sm:block" />
+
+        <div className="flex items-center gap-1.5">
+          <Truck
+            size={17}
+            className="text-[#B9D7A9]"
+          />
+          Free Shipping ₹999+
+        </div>
+      </div>
+    </div>
+
+    {/* =========================
+        RIGHT IMAGE
+    ========================= */}
+    <div className="relative mx-auto w-full max-w-lg">
+
+      {/* Glow */}
+      <div className="pointer-events-none absolute -inset-4 rounded-full bg-[#416B49]/20 blur-3xl" />
+
+      {/* Image Card */}
+      <div className="relative overflow-hidden rounded-[24px] border border-[#354A39] bg-[#19291F] shadow-xl">
+
+        <img
+          src="https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?auto=format&fit=crop&w=1000&q=85"
+          alt="Premium Clear Skin skincare products"
+          className="h-[230px] w-full object-cover sm:h-[280px] md:h-[300px] lg:h-[350px]"
+          loading="eager"
+        />
+
+        {/* Image Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#101B15]/90 via-transparent to-transparent" />
+
+        {/* Image Bottom Content */}
+        <div className="absolute bottom-3 left-3 right-3 rounded-xl border border-white/10 bg-[#142219]/90 p-3 backdrop-blur-md sm:bottom-4 sm:left-4 sm:right-4 sm:p-4">
+          <div className="flex items-center justify-between gap-3">
+
+            <div>
+              <p className="text-[9px] font-medium tracking-wider text-[#B9D7A9] sm:text-[10px]">
+                YOUR DAILY SKINCARE RITUAL
               </p>
 
-              <div className="mt-1 flex items-center gap-1">
-                <Star
-                  size={14}
-                  fill="currentColor"
-                  className="text-yellow-500"
-                />
-                <span className="text-xs font-bold sm:text-base">
-                  4.8/5
-                </span>
-              </div>
+              <h2 className="mt-0.5 text-sm font-semibold text-[#F2F5ED] sm:text-base">
+                Nature meets science.
+              </h2>
+
+              <p className="mt-0.5 text-[10px] text-[#C4D1C1] sm:text-xs">
+                Nourish. Hydrate. Glow.
+              </p>
             </div>
+
+            <div className="shrink-0 rounded-lg bg-[#B9D7A9] p-2 text-[#142318]">
+              <Leaf size={20} />
+            </div>
+
           </div>
         </div>
-      </section>
+      </div>
+
+      {/* Rating Card */}
+      <div className="absolute -bottom-3 left-3 flex items-center gap-3 rounded-xl border border-[#405543] bg-[#19291F] px-3 py-2.5 shadow-lg sm:bottom-3 sm:left-4">
+        <div>
+          <p className="text-[10px] font-medium text-[#EDF3E9] sm:text-xs">
+            Loved by skincare lovers
+          </p>
+
+          <div className="mt-0.5 flex items-center gap-1.5">
+            <span className="text-[11px] tracking-wide text-amber-400">
+              ★★★★★
+            </span>
+
+            <span className="text-[10px] text-[#C4D1C1] sm:text-xs">
+              4.8/5
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-full bg-[#304638] p-2 text-[#C6DDAA]">
+          <Heart size={15} />
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+    
 
       {/* CATEGORIES */}
       <section
@@ -393,6 +462,19 @@ export default function Home() {
         handleAddToCart={addToCart}
         addingId={addingId}
       />
+      <ProductSection
+        eyebrow="Just arrived"
+        title="New Arrivals"
+        products={newArrivals}
+        loading={loading}
+        error={apiError}
+        emptyMessage="No new products available."
+        wishlistIds={wishlistIds}
+        wishlistLoadingIds={wishlistLoadingIds}
+        onToggleWishlist={toggleWishlist}
+        handleAddToCart={addToCart}
+        addingId={addingId}
+      />
 
       {/* WHY CHOOSE US */}
       <section className="bg-[#edf5ec] py-10 sm:py-14 lg:py-16">
@@ -460,19 +542,7 @@ export default function Home() {
       </section>
 
       {/* NEW ARRIVALS */}
-      <ProductSection
-        eyebrow="Just arrived"
-        title="New Arrivals"
-        products={newArrivals}
-        loading={loading}
-        error={apiError}
-        emptyMessage="No new products available."
-        wishlistIds={wishlistIds}
-        wishlistLoadingIds={wishlistLoadingIds}
-        onToggleWishlist={toggleWishlist}
-        handleAddToCart={addToCart}
-        addingId={addingId}
-      />
+      
 
       {/* TESTIMONIALS */}
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8 lg:py-16">

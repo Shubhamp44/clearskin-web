@@ -342,7 +342,7 @@ export default function Profile() {
                     Clear Skin Account
                   </div>
 
-                  <h1 className="text-2xl font-semibold sm:text-3xl">
+                  <h1 className="text-2xl font-semibold  text-yellow-100 sm:text-3xl">
                     {user.fullName || "My Profile"}
                   </h1>
 
