@@ -426,14 +426,14 @@ const Checkout = () => {
               Continue Shopping
             </Link>
 
-            <button
+            {/* <button
               type="button"
               onClick={() => window.print()}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 px-5 py-3 font-semibold text-gray-700 transition hover:bg-gray-50"
             >
               <PackageCheck size={18} />
               Print Confirmation
-            </button>
+            </button> */}
           </div>
         </div>
       </div>

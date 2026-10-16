@@ -33,28 +33,16 @@ const money = (amount = 0) =>
 
 const getArray = (response, key) => {
   if (Array.isArray(response)) return response;
-
-  if (Array.isArray(response?.[key])) {
-    return response[key];
-  }
-
-  if (Array.isArray(response?.data)) {
-    return response.data;
-  }
-
+  if (Array.isArray(response?.[key])) return response[key];
+  if (Array.isArray(response?.data)) return response.data;
   if (Array.isArray(response?.data?.[key])) {
     return response.data[key];
   }
-
   return [];
 };
 
-/* -------------------------------------------------
-   STATUS HELPER
-------------------------------------------------- */
-
-const getOrderStatus = (order) => {
-  return String(
+const getOrderStatus = (order) =>
+  String(
     order?.orderStatus ||
       order?.status ||
       order?.order_status ||
@@ -62,7 +50,6 @@ const getOrderStatus = (order) => {
   )
     .trim()
     .toLowerCase();
-};
 
 const formatStatus = (status = "") => {
   if (!status) return "Pending";
@@ -79,10 +66,7 @@ const getStatusClasses = (status) => {
     return "bg-green-100 text-green-700";
   }
 
-  if (
-    normalized === "cancelled" ||
-    normalized === "canceled"
-  ) {
+  if (["cancelled", "canceled"].includes(normalized)) {
     return "bg-red-100 text-red-700";
   }
 
@@ -104,7 +88,7 @@ const getStatusClasses = (status) => {
 };
 
 const getImageUrl = (image) => {
-  if (!image) return "";
+  if (!image || typeof image !== "string") return "";
 
   if (
     image.startsWith("http://") ||
@@ -119,6 +103,18 @@ const getImageUrl = (image) => {
   return `${baseUrl}/${image.replace(/^\/+/, "")}`;
 };
 
+const getOrderAmount = (order) => {
+  const amount =
+    order?.totalAmount ??
+    order?.total ??
+    order?.amount ??
+    0;
+
+  const parsedAmount = Number(amount);
+
+  return Number.isFinite(parsedAmount) ? parsedAmount : 0;
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
@@ -131,9 +127,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  /* -------------------------------------------------
-     AUTH CHECK + FETCH DATA
-  ------------------------------------------------- */
+  /* AUTH CHECK + FETCH DATA */
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -158,6 +152,8 @@ export default function AdminDashboard() {
       navigate("/", { replace: true });
       return;
     }
+
+    let cancelled = false;
 
     const fetchDashboardData = async () => {
       try {
@@ -184,9 +180,7 @@ export default function AdminDashboard() {
           )
         );
 
-        /* ---------------------------------------------
-           TOKEN / AUTH ERROR
-        --------------------------------------------- */
+        if (cancelled) return;
 
         if (
           responses.some(
@@ -202,133 +196,115 @@ export default function AdminDashboard() {
           return;
         }
 
-        /* ---------------------------------------------
-           READ JSON
-        --------------------------------------------- */
-
         const results = await Promise.all(
           responses.map(async (response) => {
             try {
-              return await response.json();
-            } catch {
-              return {};
+              const data = await response.json();
+
+              if (!response.ok) {
+                throw new Error(
+                  data?.message || "Failed to fetch data"
+                );
+              }
+
+              return data;
+            } catch (err) {
+              if (err instanceof SyntaxError) return {};
+              throw err;
             }
           })
         );
 
-        /* ---------------------------------------------
-           SET DATA
-        --------------------------------------------- */
+        if (cancelled) return;
 
         setProducts(getArray(results[0], "products"));
         setCategories(getArray(results[1], "categories"));
         setUsers(getArray(results[2], "users"));
         setOrders(getArray(results[3], "orders"));
-
-        /* ---------------------------------------------
-           DEBUG ORDERS
-           Browser console me exact status dikhega.
-        --------------------------------------------- */
-
-        console.table(
-          getArray(results[3], "orders").map((order) => ({
-            id: order?._id,
-            orderStatus: order?.orderStatus,
-            status: order?.status,
-            totalAmount: order?.totalAmount,
-          }))
-        );
       } catch (err) {
-        console.error("Admin dashboard error:", err);
-
-        setError(
-          err?.message ||
-            "Failed to load dashboard data."
-        );
+        if (!cancelled) {
+          console.error("Admin dashboard error:", err);
+          setError(
+            err?.message || "Failed to load dashboard data."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchDashboardData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
-  /* -------------------------------------------------
-     DASHBOARD CALCULATIONS
-  ------------------------------------------------- */
+  /* DASHBOARD CALCULATIONS */
 
+  // Total amount of all orders, regardless of their status.
   const totalRevenue = useMemo(() => {
-    return orders
-      .filter(
-        (order) =>
-          getOrderStatus(order) === "delivered"
-      )
-      .reduce((sum, order) => {
-        const amount = Number(
-          order?.totalAmount ??
-            order?.total ??
-            order?.amount ??
-            0
-        );
-
-        return sum + (Number.isFinite(amount) ? amount : 0);
-      }, 0);
-  }, [orders]);
-
-  const deliveredOrders = useMemo(() => {
-    return orders.filter(
-      (order) =>
-        getOrderStatus(order) === "delivered"
+    return orders.reduce(
+      (sum, order) => sum + getOrderAmount(order),
+      0
     );
   }, [orders]);
 
-  const pendingOrders = useMemo(() => {
-    return orders.filter((order) => {
-      const status = getOrderStatus(order);
+  const deliveredOrders = useMemo(
+    () =>
+      orders.filter(
+        (order) => getOrderStatus(order) === "delivered"
+      ),
+    [orders]
+  );
 
-      return [
-        "pending",
-        "processing",
-        "confirmed",
-        "packed",
-      ].includes(status);
-    });
-  }, [orders]);
+  const pendingOrders = useMemo(
+    () =>
+      orders.filter((order) =>
+        [
+          "pending",
+          "processing",
+          "confirmed",
+          "packed",
+        ].includes(getOrderStatus(order))
+      ),
+    [orders]
+  );
 
-  const cancelledOrders = useMemo(() => {
-    return orders.filter((order) => {
-      const status = getOrderStatus(order);
+  const cancelledOrders = useMemo(
+    () =>
+      orders.filter((order) =>
+        ["cancelled", "canceled"].includes(
+          getOrderStatus(order)
+        )
+      ),
+    [orders]
+  );
 
-      return (
-        status === "cancelled" ||
-        status === "canceled"
-      );
-    });
-  }, [orders]);
+  const lowStockProducts = useMemo(
+    () =>
+      products
+        .filter((product) => Number(product?.stock ?? 0) <= 5)
+        .sort(
+          (a, b) =>
+            Number(a?.stock ?? 0) -
+            Number(b?.stock ?? 0)
+        )
+        .slice(0, 5),
+    [products]
+  );
 
-  const lowStockProducts = useMemo(() => {
-    return products
-      .filter(
-        (product) =>
-          Number(product?.stock ?? 0) <= 5
-      )
-      .sort(
-        (a, b) =>
-          Number(a?.stock ?? 0) -
-          Number(b?.stock ?? 0)
-      )
-      .slice(0, 5);
-  }, [products]);
-
-  const recentOrders = useMemo(() => {
-    return [...orders]
-      .sort(
-        (a, b) =>
-          new Date(b?.createdAt || 0) -
-          new Date(a?.createdAt || 0)
-      )
-      .slice(0, 5);
-  }, [orders]);
+  const recentOrders = useMemo(
+    () =>
+      [...orders]
+        .sort(
+          (a, b) =>
+            new Date(b?.createdAt || 0) -
+            new Date(a?.createdAt || 0)
+        )
+        .slice(0, 5),
+    [orders]
+  );
 
   const deliveredPercentage = useMemo(() => {
     if (!orders.length) return 0;
@@ -341,20 +317,15 @@ export default function AdminDashboard() {
     );
   }, [orders.length, deliveredOrders.length]);
 
-  /* -------------------------------------------------
-     LOGOUT
-  ------------------------------------------------- */
+  /* LOGOUT */
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-
     navigate("/login", { replace: true });
   };
 
-  /* -------------------------------------------------
-     DATE FORMAT
-  ------------------------------------------------- */
+  /* DATE FORMAT */
 
   const formatDate = (date) => {
     if (!date) return "N/A";
@@ -372,9 +343,7 @@ export default function AdminDashboard() {
     });
   };
 
-  /* -------------------------------------------------
-     SIDEBAR
-  ------------------------------------------------- */
+  /* SIDEBAR MENU */
 
   const menuItems = [
     {
@@ -405,13 +374,8 @@ export default function AdminDashboard() {
     },
   ];
 
-  /* -------------------------------------------------
-     SIDEBAR COMPONENT
-  ------------------------------------------------- */
-
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
-      {/* Logo */}
       <div className="border-b border-[#e7e5dc] px-6 py-6">
         <Link
           to="/"
@@ -421,14 +385,12 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold tracking-tight text-[#315c40]">
             Clear Skin
           </h1>
-
           <p className="mt-1 text-xs font-medium text-[#7b8178]">
             Naturally Beautiful
           </p>
         </Link>
       </div>
 
-      {/* Menu */}
       <nav className="flex-1 space-y-2 px-4 py-6">
         {menuItems.map((item) => {
           const Icon = item.icon;
@@ -451,7 +413,6 @@ export default function AdminDashboard() {
         })}
       </nav>
 
-      {/* Logout */}
       <div className="border-t border-[#e7e5dc] p-4">
         <button
           type="button"
@@ -465,16 +426,13 @@ export default function AdminDashboard() {
     </div>
   );
 
-  /* -------------------------------------------------
-     LOADING
-  ------------------------------------------------- */
+  /* LOADING */
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f8f7f1]">
         <div className="text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#dce5d9] border-t-[#315c40]" />
-
           <p className="mt-4 text-sm font-medium text-[#697169]">
             Loading dashboard...
           </p>
@@ -483,23 +441,17 @@ export default function AdminDashboard() {
     );
   }
 
-  /* -------------------------------------------------
-     MAIN UI
-  ------------------------------------------------- */
+  /* MAIN DASHBOARD */
 
   return (
     <div className="min-h-screen bg-[#f8f7f1] text-[#273128]">
-      {/* ---------------------------------------------
-          DESKTOP SIDEBAR
-      --------------------------------------------- */}
+      {/* DESKTOP SIDEBAR */}
 
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-[#e7e5dc] bg-white lg:block">
         <SidebarContent />
       </aside>
 
-      {/* ---------------------------------------------
-          MOBILE SIDEBAR
-      --------------------------------------------- */}
+      {/* MOBILE SIDEBAR */}
 
       {mobileOpen && (
         <>
@@ -528,12 +480,9 @@ export default function AdminDashboard() {
         </>
       )}
 
-      {/* ---------------------------------------------
-          CONTENT
-      --------------------------------------------- */}
-
       <main className="min-h-screen lg:ml-64">
-        {/* Header */}
+        {/* HEADER */}
+
         <header className="sticky top-0 z-30 border-b border-[#e7e5dc] bg-[#f8f7f1]/95 backdrop-blur">
           <div className="flex h-20 items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-3">
@@ -549,7 +498,6 @@ export default function AdminDashboard() {
                 <h2 className="text-xl font-bold text-[#263229] sm:text-2xl">
                   Admin Dashboard
                 </h2>
-
                 <p className="mt-0.5 hidden text-sm text-[#7a817a] sm:block">
                   Manage your Clear Skin store
                 </p>
@@ -566,169 +514,134 @@ export default function AdminDashboard() {
         </header>
 
         <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {/* Error */}
+          {/* ERROR */}
+
           {error && (
             <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
               <AlertTriangle
                 size={20}
                 className="mt-0.5 shrink-0"
               />
-
               <div>
                 <p className="font-semibold">
                   Unable to load some dashboard data
                 </p>
-
-                <p className="mt-1 text-sm">
-                  {error}
-                </p>
+                <p className="mt-1 text-sm">{error}</p>
               </div>
             </div>
           )}
 
-          {/* -----------------------------------------
-              STAT CARDS
-          ----------------------------------------- */}
+          {/* STAT CARDS */}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {/* Products */}
             <div className="rounded-2xl border border-[#e6e6df] bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm font-medium text-[#7a817a]">
                     Total Products
                   </p>
-
                   <h3 className="mt-2 text-3xl font-bold text-[#273128]">
                     {products.length}
                   </h3>
                 </div>
-
                 <div className="rounded-xl bg-[#edf2e8] p-3 text-[#315c40]">
                   <Boxes size={22} />
                 </div>
               </div>
-
               <Link
                 to="/admin/products"
                 className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#315c40]"
               >
-                Manage products
-                <ArrowRight size={15} />
+                Manage products <ArrowRight size={15} />
               </Link>
             </div>
 
-            {/* Categories */}
             <div className="rounded-2xl border border-[#e6e6df] bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm font-medium text-[#7a817a]">
                     Categories
                   </p>
-
                   <h3 className="mt-2 text-3xl font-bold text-[#273128]">
                     {categories.length}
                   </h3>
                 </div>
-
                 <div className="rounded-xl bg-[#edf2e8] p-3 text-[#315c40]">
                   <FolderKanban size={22} />
                 </div>
               </div>
-
               <Link
                 to="/admin/categories"
                 className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#315c40]"
               >
-                Manage categories
-                <ArrowRight size={15} />
+                Manage categories <ArrowRight size={15} />
               </Link>
             </div>
 
-            {/* Orders */}
             <div className="rounded-2xl border border-[#e6e6df] bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm font-medium text-[#7a817a]">
                     Total Orders
                   </p>
-
                   <h3 className="mt-2 text-3xl font-bold text-[#273128]">
                     {orders.length}
                   </h3>
                 </div>
-
                 <div className="rounded-xl bg-[#edf2e8] p-3 text-[#315c40]">
                   <ShoppingBag size={22} />
                 </div>
               </div>
-
               <p className="mt-4 text-sm font-medium text-[#7a817a]">
                 {pendingOrders.length} pending
               </p>
             </div>
 
-            {/* Users */}
             <div className="rounded-2xl border border-[#e6e6df] bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm font-medium text-[#7a817a]">
                     Total Users
                   </p>
-
                   <h3 className="mt-2 text-3xl font-bold text-[#273128]">
                     {users.length}
                   </h3>
                 </div>
-
                 <div className="rounded-xl bg-[#edf2e8] p-3 text-[#315c40]">
                   <UserRound size={22} />
                 </div>
               </div>
-
               <Link
                 to="/admin/users"
                 className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#315c40]"
               >
-                View users
-                <ArrowRight size={15} />
+                View users <ArrowRight size={15} />
               </Link>
             </div>
           </div>
 
-          {/* -----------------------------------------
-              REVENUE + ORDER SUMMARY
-          ----------------------------------------- */}
+          {/* TOTAL AMOUNT + ORDER SUMMARY */}
 
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-            {/* Revenue */}
-            <div className="xl:col-span-2 overflow-hidden rounded-2xl bg-[#315c40] p-6 text-white shadow-sm sm:p-7">
+            <div className="overflow-hidden rounded-2xl bg-[#315c40] p-6 text-white shadow-sm sm:p-7 xl:col-span-2">
               <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
                 <div>
                   <div className="flex items-center gap-2 text-white/80">
                     <TrendingUp size={19} />
-
                     <span className="text-sm font-medium">
-                      Delivered Orders Revenue
+                      Total Orders Amount
                     </span>
                   </div>
 
                   <div className="mt-3 flex items-center gap-2">
-                    <IndianRupee
-                      size={30}
-                      strokeWidth={2.2}
-                    />
-
+                    <IndianRupee size={30} strokeWidth={2.2} />
                     <h3 className="text-4xl font-bold tracking-tight sm:text-5xl">
-                      {money(totalRevenue).replace(
-                        "₹",
-                        ""
-                      )}
+                      {money(totalRevenue).replace("₹", "")}
                     </h3>
                   </div>
 
                   <p className="mt-3 text-sm text-white/70">
-                    Calculated from delivered orders only
+                    Combined amount of all orders
                   </p>
                 </div>
 
@@ -742,49 +655,34 @@ export default function AdminDashboard() {
                   <span className="text-white/70">
                     Delivered Orders
                   </span>
-
                   <span className="font-semibold">
-                    {deliveredOrders.length} /{" "}
-                    {orders.length}
+                    {deliveredOrders.length} / {orders.length}
                   </span>
                 </div>
 
                 <div className="h-2 overflow-hidden rounded-full bg-white/15">
                   <div
                     className="h-full rounded-full bg-white transition-all duration-500"
-                    style={{
-                      width: `${deliveredPercentage}%`,
-                    }}
+                    style={{ width: `${deliveredPercentage}%` }}
                   />
                 </div>
               </div>
 
               <div className="mt-6 flex flex-wrap gap-3">
                 <div className="rounded-xl bg-white/10 px-4 py-3">
-                  <p className="text-xs text-white/60">
-                    Delivered
-                  </p>
-
+                  <p className="text-xs text-white/60">Delivered</p>
                   <p className="mt-1 text-lg font-bold">
                     {deliveredOrders.length}
                   </p>
                 </div>
-
                 <div className="rounded-xl bg-white/10 px-4 py-3">
-                  <p className="text-xs text-white/60">
-                    Pending
-                  </p>
-
+                  <p className="text-xs text-white/60">Pending</p>
                   <p className="mt-1 text-lg font-bold">
                     {pendingOrders.length}
                   </p>
                 </div>
-
                 <div className="rounded-xl bg-white/10 px-4 py-3">
-                  <p className="text-xs text-white/60">
-                    Cancelled
-                  </p>
-
+                  <p className="text-xs text-white/60">Cancelled</p>
                   <p className="mt-1 text-lg font-bold">
                     {cancelledOrders.length}
                   </p>
@@ -792,19 +690,18 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Order Status */}
+            {/* ORDER OVERVIEW */}
+
             <div className="rounded-2xl border border-[#e6e6df] bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-[#273128]">
                     Order Overview
                   </h3>
-
                   <p className="mt-1 text-sm text-[#7a817a]">
                     Current order status
                   </p>
                 </div>
-
                 <div className="rounded-xl bg-[#edf2e8] p-3 text-[#315c40]">
                   <Clock size={21} />
                 </div>
@@ -812,43 +709,20 @@ export default function AdminDashboard() {
 
               <div className="mt-6 space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-[#6f776f]">
-                    Total Orders
-                  </span>
-
-                  <span className="font-bold text-[#273128]">
-                    {orders.length}
-                  </span>
+                  <span className="text-sm text-[#6f776f]">Total Orders</span>
+                  <span className="font-bold text-[#273128]">{orders.length}</span>
                 </div>
-
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-[#6f776f]">
-                    Pending
-                  </span>
-
-                  <span className="font-bold text-yellow-600">
-                    {pendingOrders.length}
-                  </span>
+                  <span className="text-sm text-[#6f776f]">Pending</span>
+                  <span className="font-bold text-yellow-600">{pendingOrders.length}</span>
                 </div>
-
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-[#6f776f]">
-                    Delivered
-                  </span>
-
-                  <span className="font-bold text-green-600">
-                    {deliveredOrders.length}
-                  </span>
+                  <span className="text-sm text-[#6f776f]">Delivered</span>
+                  <span className="font-bold text-green-600">{deliveredOrders.length}</span>
                 </div>
-
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-[#6f776f]">
-                    Cancelled
-                  </span>
-
-                  <span className="font-bold text-red-600">
-                    {cancelledOrders.length}
-                  </span>
+                  <span className="text-sm text-[#6f776f]">Cancelled</span>
+                  <span className="font-bold text-red-600">{cancelledOrders.length}</span>
                 </div>
               </div>
 
@@ -856,30 +730,22 @@ export default function AdminDashboard() {
                 to="/admin/orders"
                 className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-[#edf2e8] px-4 py-3 text-sm font-semibold text-[#315c40] transition hover:bg-[#dfe9dc]"
               >
-                Manage Orders
-                <ArrowRight size={16} />
+                Manage Orders <ArrowRight size={16} />
               </Link>
             </div>
           </div>
 
-          {/* -----------------------------------------
-              RECENT ORDERS + LOW STOCK
-          ----------------------------------------- */}
+          {/* RECENT ORDERS + LOW STOCK */}
 
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-            {/* Recent Orders */}
             <div className="overflow-hidden rounded-2xl border border-[#e6e6df] bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-[#ecece5] px-5 py-5 sm:px-6">
                 <div>
-                  <h3 className="font-bold text-[#273128]">
-                    Recent Orders
-                  </h3>
-
+                  <h3 className="font-bold text-[#273128]">Recent Orders</h3>
                   <p className="mt-1 text-sm text-[#7a817a]">
                     Latest customer orders
                   </p>
                 </div>
-
                 <Link
                   to="/admin/orders"
                   className="text-sm font-semibold text-[#315c40]"
@@ -890,11 +756,7 @@ export default function AdminDashboard() {
 
               {recentOrders.length === 0 ? (
                 <div className="px-6 py-12 text-center">
-                  <ShoppingBag
-                    size={38}
-                    className="mx-auto text-[#b8beb7]"
-                  />
-
+                  <ShoppingBag size={38} className="mx-auto text-[#b8beb7]" />
                   <p className="mt-3 text-sm font-medium text-[#737a73]">
                     No orders found
                   </p>
@@ -902,15 +764,16 @@ export default function AdminDashboard() {
               ) : (
                 <div className="divide-y divide-[#eeeeea]">
                   {recentOrders.map((order) => {
-                    const status =
-                      getOrderStatus(order);
-
+                    const status = getOrderStatus(order);
                     const customerName =
                       order?.user?.fullName ||
                       order?.user?.name ||
-                      order?.shippingAddress
-                        ?.fullName ||
+                      order?.shippingAddress?.fullName ||
                       "Customer";
+
+                    const itemCount = Array.isArray(order?.items)
+                      ? order.items.length
+                      : 0;
 
                     return (
                       <div
@@ -920,50 +783,28 @@ export default function AdminDashboard() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="truncate text-sm font-bold text-[#273128]">
-                              #
-                              {String(
-                                order?._id || ""
-                              ).slice(-8)}
+                              #{String(order?._id || "").slice(-8)}
                             </p>
-
                             <span
-                              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${getStatusClasses(
-                                status
-                              )}`}
+                              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${getStatusClasses(status)}`}
                             >
                               {formatStatus(status)}
                             </span>
                           </div>
-
                           <p className="mt-1 truncate text-sm text-[#737a73]">
                             {customerName}
                           </p>
-
                           <p className="mt-1 text-xs text-[#999f99]">
-                            {formatDate(
-                              order?.createdAt
-                            )}
+                            {formatDate(order?.createdAt)}
                           </p>
                         </div>
 
                         <div className="text-left sm:text-right">
                           <p className="text-sm font-bold text-[#273128]">
-                            {money(
-                              order?.totalAmount ||
-                                order?.total ||
-                                order?.amount ||
-                                0
-                            )}
+                            {money(getOrderAmount(order))}
                           </p>
-
                           <p className="mt-1 text-xs text-[#858b85]">
-                            {order?.items?.length ||
-                              0}{" "}
-                            item
-                            {(order?.items?.length ||
-                              0) !== 1
-                              ? "s"
-                              : ""}
+                            {itemCount} item{itemCount !== 1 ? "s" : ""}
                           </p>
                         </div>
                       </div>
@@ -973,19 +814,18 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            {/* Low Stock */}
+            {/* LOW STOCK */}
+
             <div className="overflow-hidden rounded-2xl border border-[#e6e6df] bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-[#ecece5] px-5 py-5 sm:px-6">
                 <div>
                   <h3 className="font-bold text-[#273128]">
                     Low Stock Products
                   </h3>
-
                   <p className="mt-1 text-sm text-[#7a817a]">
                     Products with 5 or fewer items
                   </p>
                 </div>
-
                 <div className="rounded-xl bg-orange-50 p-3 text-orange-600">
                   <AlertTriangle size={20} />
                 </div>
@@ -993,11 +833,7 @@ export default function AdminDashboard() {
 
               {lowStockProducts.length === 0 ? (
                 <div className="px-6 py-12 text-center">
-                  <CheckCircle
-                    size={38}
-                    className="mx-auto text-green-500"
-                  />
-
+                  <CheckCircle size={38} className="mx-auto text-green-500" />
                   <p className="mt-3 text-sm font-medium text-[#737a73]">
                     All products have healthy stock
                   </p>
@@ -1005,13 +841,8 @@ export default function AdminDashboard() {
               ) : (
                 <div className="divide-y divide-[#eeeeea]">
                   {lowStockProducts.map((product) => {
-                    const image = getImageUrl(
-                      product?.image
-                    );
-
-                    const stock = Number(
-                      product?.stock || 0
-                    );
+                    const image = getImageUrl(product?.image);
+                    const stock = Number(product?.stock ?? 0);
 
                     return (
                       <div
@@ -1025,8 +856,7 @@ export default function AdminDashboard() {
                               alt={product?.name || "Product"}
                               className="h-full w-full object-cover"
                               onError={(event) => {
-                                event.currentTarget.style.display =
-                                  "none";
+                                event.currentTarget.style.display = "none";
                               }}
                             />
                           ) : (
@@ -1038,31 +868,22 @@ export default function AdminDashboard() {
 
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-[#273128]">
-                            {product?.name ||
-                              "Unnamed Product"}
+                            {product?.name || "Unnamed Product"}
                           </p>
-
                           <p className="mt-1 text-xs text-[#7d847d]">
-                            {money(
-                              product?.price || 0
-                            )}
+                            {money(product?.price || 0)}
                           </p>
                         </div>
 
                         <div className="text-right">
                           <p
                             className={`text-sm font-bold ${
-                              stock === 0
-                                ? "text-red-600"
-                                : "text-orange-600"
+                              stock === 0 ? "text-red-600" : "text-orange-600"
                             }`}
                           >
                             {stock}
                           </p>
-
-                          <p className="text-xs text-[#8b918b]">
-                            left
-                          </p>
+                          <p className="text-xs text-[#8b918b]">left</p>
                         </div>
                       </div>
                     );
@@ -1075,23 +896,17 @@ export default function AdminDashboard() {
                   to="/admin/products"
                   className="flex items-center justify-center gap-2 rounded-xl bg-[#edf2e8] px-4 py-3 text-sm font-semibold text-[#315c40] transition hover:bg-[#dfe9dc]"
                 >
-                  Manage Products
-                  <ArrowRight size={16} />
+                  Manage Products <ArrowRight size={16} />
                 </Link>
               </div>
             </div>
           </div>
 
-          {/* -----------------------------------------
-              QUICK ACTIONS
-          ----------------------------------------- */}
+          {/* QUICK ACTIONS */}
 
           <div className="mt-6 rounded-2xl border border-[#e6e6df] bg-white p-5 shadow-sm sm:p-6">
             <div>
-              <h3 className="font-bold text-[#273128]">
-                Quick Actions
-              </h3>
-
+              <h3 className="font-bold text-[#273128]">Quick Actions</h3>
               <p className="mt-1 text-sm text-[#7a817a]">
                 Quickly manage your store
               </p>
@@ -1102,11 +917,7 @@ export default function AdminDashboard() {
                 to="/admin/products"
                 className="flex flex-col items-center justify-center rounded-xl border border-[#e6e6df] p-4 text-center transition hover:border-[#315c40] hover:bg-[#edf2e8]"
               >
-                <Package
-                  size={22}
-                  className="text-[#315c40]"
-                />
-
+                <Package size={22} className="text-[#315c40]" />
                 <span className="mt-2 text-sm font-semibold text-[#4e584f]">
                   Products
                 </span>
@@ -1116,11 +927,7 @@ export default function AdminDashboard() {
                 to="/admin/categories"
                 className="flex flex-col items-center justify-center rounded-xl border border-[#e6e6df] p-4 text-center transition hover:border-[#315c40] hover:bg-[#edf2e8]"
               >
-                <FolderTree
-                  size={22}
-                  className="text-[#315c40]"
-                />
-
+                <FolderTree size={22} className="text-[#315c40]" />
                 <span className="mt-2 text-sm font-semibold text-[#4e584f]">
                   Categories
                 </span>
@@ -1130,11 +937,7 @@ export default function AdminDashboard() {
                 to="/admin/orders"
                 className="flex flex-col items-center justify-center rounded-xl border border-[#e6e6df] p-4 text-center transition hover:border-[#315c40] hover:bg-[#edf2e8]"
               >
-                <ShoppingBag
-                  size={22}
-                  className="text-[#315c40]"
-                />
-
+                <ShoppingBag size={22} className="text-[#315c40]" />
                 <span className="mt-2 text-sm font-semibold text-[#4e584f]">
                   Orders
                 </span>
@@ -1144,11 +947,7 @@ export default function AdminDashboard() {
                 to="/admin/users"
                 className="flex flex-col items-center justify-center rounded-xl border border-[#e6e6df] p-4 text-center transition hover:border-[#315c40] hover:bg-[#edf2e8]"
               >
-                <Users
-                  size={22}
-                  className="text-[#315c40]"
-                />
-
+                <Users size={22} className="text-[#315c40]" />
                 <span className="mt-2 text-sm font-semibold text-[#4e584f]">
                   Users
                 </span>
