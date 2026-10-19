@@ -74,6 +74,15 @@ discount: {
       enum: ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"],
       default: "Pending",
     },
+    
+    estimatedDeliveryDate: {
+  type: Date,
+},
+
+    orderDate: {
+  type: Date,
+  default: Date.now,
+},
   },
   { timestamps: true }
 );

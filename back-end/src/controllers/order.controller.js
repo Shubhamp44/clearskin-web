@@ -1,5 +1,7 @@
 
 
+
+
 import Order from "../models/order.model.js";
 import Cart from "../models/cart.model.js";
 import Product from "../models/product.model.js";
@@ -13,6 +15,7 @@ export const createOrder = async (req, res) => {
       couponCode,
     } = req.body;
 
+    // Validate shipping address
     if (!shippingAddress) {
       return res.status(400).json({
         success: false,
@@ -44,7 +47,8 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    const finalBillingAddress = billingAddress || shippingAddress;
+    const finalBillingAddress =
+      billingAddress || shippingAddress;
 
     if (!validAddress(finalBillingAddress)) {
       return res.status(400).json({
@@ -53,11 +57,16 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    // Find user's cart
     const cart = await Cart.findOne({
       user: req.user.id,
     }).populate("items.product");
 
-    if (!cart || !cart.items || cart.items.length === 0) {
+    if (
+      !cart ||
+      !cart.items ||
+      cart.items.length === 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "Your cart is empty",
@@ -67,6 +76,7 @@ export const createOrder = async (req, res) => {
     let subtotal = 0;
     const orderItems = [];
 
+    // Validate products and quantities
     for (const item of cart.items) {
       const product = item.product;
       const quantity = Number(item.quantity);
@@ -74,11 +84,15 @@ export const createOrder = async (req, res) => {
       if (!product) {
         return res.status(400).json({
           success: false,
-          message: "A product in your cart no longer exists",
+          message:
+            "A product in your cart no longer exists",
         });
       }
 
-      if (!Number.isInteger(quantity) || quantity < 1) {
+      if (
+        !Number.isInteger(quantity) ||
+        quantity < 1
+      ) {
         return res.status(400).json({
           success: false,
           message: "Invalid product quantity",
@@ -107,10 +121,14 @@ export const createOrder = async (req, res) => {
     let appliedCoupon = null;
 
     if (couponCode && couponCode.trim()) {
-      const normalizedCoupon = couponCode.trim().toUpperCase();
+      const normalizedCoupon =
+        couponCode.trim().toUpperCase();
 
       if (normalizedCoupon === "SAVE10") {
-        discount = Number((subtotal * 0.1).toFixed(2));
+        discount = Number(
+          (subtotal * 0.1).toFixed(2)
+        );
+
         appliedCoupon = "SAVE10";
       } else {
         return res.status(400).json({
@@ -136,7 +154,19 @@ export const createOrder = async (req, res) => {
 
     // Final amount
     const totalAmount = Number(
-      (discountedSubtotal + shippingCharge + gst).toFixed(2)
+      (
+        discountedSubtotal +
+        shippingCharge +
+        gst
+      ).toFixed(2)
+    );
+
+    // Calculate estimated delivery date (5 days)
+    const orderDate = new Date();
+    const estimatedDeliveryDate = new Date(orderDate);
+
+    estimatedDeliveryDate.setDate(
+      estimatedDeliveryDate.getDate() + 5
     );
 
     // Create order
@@ -154,9 +184,12 @@ export const createOrder = async (req, res) => {
       paymentMethod: "COD",
       paymentStatus: "Pending",
       orderStatus: "Pending",
+
+      // Delivery date fields
+      estimatedDeliveryDate,
     });
 
-    // Reduce product stock
+    // Reduce product stock safely
     const updatedProducts = [];
 
     for (const item of orderItems) {
@@ -171,11 +204,15 @@ export const createOrder = async (req, res) => {
       );
 
       if (result.modifiedCount !== 1) {
-        // Restore stock already deducted for this order
+        // Restore stock already deducted
         for (const updated of updatedProducts) {
           await Product.updateOne(
             { _id: updated.product },
-            { $inc: { stock: updated.quantity } }
+            {
+              $inc: {
+                stock: updated.quantity,
+              },
+            }
           );
         }
 
@@ -183,7 +220,8 @@ export const createOrder = async (req, res) => {
 
         return res.status(409).json({
           success: false,
-          message: "Stock changed. Please try again.",
+          message:
+            "Stock changed. Please try again.",
         });
       }
 
@@ -204,7 +242,8 @@ export const createOrder = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Failed to create order",
+      error: error.message,
     });
   }
 };
@@ -221,9 +260,12 @@ export const getMyOrders = async (req, res) => {
       orders,
     });
   } catch (error) {
+    console.error("Get my orders error:", error);
+
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Failed to fetch your orders",
+      error: error.message,
     });
   }
 };
@@ -240,9 +282,12 @@ export const getAllOrders = async (req, res) => {
       orders,
     });
   } catch (error) {
+    console.error("Get all orders error:", error);
+
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Failed to fetch orders",
+      error: error.message,
     });
   }
 };
@@ -270,7 +315,10 @@ export const updateOrderStatus = async (req, res) => {
     const order = await Order.findByIdAndUpdate(
       req.params.id,
       { orderStatus },
-      { new: true, runValidators: true }
+      {
+        new: true,
+        runValidators: true,
+      }
     );
 
     if (!order) {
@@ -286,9 +334,12 @@ export const updateOrderStatus = async (req, res) => {
       order,
     });
   } catch (error) {
+    console.error("Update order status error:", error);
+
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Failed to update order status",
+      error: error.message,
     });
   }
 };

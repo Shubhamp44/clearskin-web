@@ -1,7 +1,8 @@
 
+
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-  
+
 import {
   ArrowLeft,
   ArrowRight,
@@ -69,7 +70,6 @@ const Checkout = () => {
       maximumFractionDigits: 2,
     });
 
-  // Calculate subtotal from cart items.
   const subtotal = useMemo(
     () =>
       cartItems.reduce((total, item) => {
@@ -79,7 +79,6 @@ const Checkout = () => {
     [cartItems]
   );
 
-  // Preview coupon calculation.
   const discount =
     appliedCoupon === "SAVE10"
       ? Number((subtotal * 0.1).toFixed(2))
@@ -166,7 +165,6 @@ const Checkout = () => {
 
   const handlePlaceOrder = async (event) => {
     event.preventDefault();
-
     setPageError("");
 
     const token = localStorage.getItem("token");
@@ -224,17 +222,13 @@ const Checkout = () => {
 
       setSuccessOrder(response.data.order);
 
-      // Refresh cart after successful order.
       try {
         await fetchCart();
       } catch (refreshError) {
         console.error("Cart refresh error:", refreshError);
       }
     } catch (err) {
-      console.error(
-        "Place order error:",
-        err.response?.data || err
-      );
+      console.error("Place order error:", err.response?.data || err);
 
       if (err.response?.status === 401) {
         setPageError("Your session has expired. Please login again.");
@@ -371,6 +365,19 @@ const Checkout = () => {
 
   // Order confirmation screen.
   if (successOrder) {
+    const deliveryDate = successOrder.estimatedDeliveryDate
+      ? new Date(successOrder.estimatedDeliveryDate)
+      : null;
+
+    const formattedDeliveryDate =
+      deliveryDate && !Number.isNaN(deliveryDate.getTime())
+        ? deliveryDate.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        : null;
+
     return (
       <div className="min-h-screen bg-[#faf9f5] px-4 py-12 sm:py-20">
         <div className="mx-auto max-w-xl rounded-3xl border border-green-100 bg-white p-6 text-center shadow-sm sm:p-10">
@@ -396,8 +403,18 @@ const Checkout = () => {
             </div>
 
             <div className="flex justify-between gap-3 border-t border-gray-200 py-3 text-sm">
+              <span className="flex items-center gap-2 text-gray-500">
+                <Truck size={17} className="shrink-0 text-green-800" />
+                Expected Delivery
+              </span>
+              <span className="text-right font-semibold text-green-800">
+                {formattedDeliveryDate || "Date not available"}
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-3 border-t border-gray-200 py-3 text-sm">
               <span className="text-gray-500">Payment method</span>
-              <span className="font-semibold text-gray-800">
+              <span className="text-right font-semibold text-gray-800">
                 Cash on Delivery
               </span>
             </div>
@@ -417,6 +434,13 @@ const Checkout = () => {
             </div>
           </div>
 
+          {!formattedDeliveryDate && (
+            <p className="mt-3 text-left text-xs text-amber-700">
+              Delivery date is not available. Check that your backend saves
+              and returns estimatedDeliveryDate.
+            </p>
+          )}
+
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <Link
               to="/products"
@@ -425,15 +449,6 @@ const Checkout = () => {
               <ShoppingBag size={18} />
               Continue Shopping
             </Link>
-
-            {/* <button
-              type="button"
-              onClick={() => window.print()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 px-5 py-3 font-semibold text-gray-700 transition hover:bg-gray-50"
-            >
-              <PackageCheck size={18} />
-              Print Confirmation
-            </button> */}
           </div>
         </div>
       </div>
@@ -519,13 +534,11 @@ const Checkout = () => {
           <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-3">
             {/* Address and Payment */}
             <div className="space-y-6 lg:col-span-2">
-              {/* Shipping address */}
               <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-7">
                 <div className="mb-6 flex items-center gap-3">
                   <div className="rounded-xl bg-[#e5efdf] p-3 text-green-800">
                     <MapPin size={22} />
                   </div>
-
                   <div>
                     <h2 className="text-xl font-bold text-gray-800">
                       Delivery Address
@@ -549,7 +562,6 @@ const Checkout = () => {
                   <div className="rounded-xl bg-[#e5efdf] p-3 text-green-800">
                     <UserRound size={22} />
                   </div>
-
                   <div>
                     <h2 className="text-xl font-bold text-gray-800">
                       Billing Address
@@ -570,7 +582,6 @@ const Checkout = () => {
                     className="mt-1 h-4 w-4 accent-green-800"
                     disabled={placingOrder}
                   />
-
                   <span>
                     <span className="block text-sm font-semibold text-gray-800">
                       Billing address same as delivery address
@@ -598,7 +609,6 @@ const Checkout = () => {
                   <div className="rounded-xl bg-[#e5efdf] p-3 text-green-800">
                     <CreditCard size={22} />
                   </div>
-
                   <div>
                     <h2 className="text-xl font-bold text-gray-800">
                       Payment Method
@@ -618,7 +628,6 @@ const Checkout = () => {
                     readOnly
                     className="mt-1 accent-green-800"
                   />
-
                   <div className="flex-1">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-semibold text-gray-800">
@@ -628,7 +637,6 @@ const Checkout = () => {
                         Available
                       </span>
                     </div>
-
                     <p className="mt-1 text-sm text-gray-500">
                       Pay when your order is delivered to your address.
                     </p>
@@ -665,26 +673,27 @@ const Checkout = () => {
                       item?.productId ||
                       index;
 
+                    const imageUrl = product?.image
+                      ? product.image.startsWith("http")
+                        ? product.image
+                        : `${
+                            (
+                              import.meta.env.VITE_API_URL ||
+                              "http://localhost:8000/api"
+                            ).replace(/\/api\/?$/, "")
+                          }${
+                            product.image.startsWith("/") ? "" : "/"
+                          }${product.image}`
+                      : "";
+
                     return (
                       <div
                         key={String(productId)}
                         className="flex items-start gap-3"
                       >
-                        {product?.image ? (
+                        {imageUrl ? (
                           <img
-                            src={
-                              product.image.startsWith("http")
-                                ? product.image
-                                : `${
-                                    (import.meta.env.VITE_API_URL ||
-                                      "http://localhost:8000/api").replace(
-                                      /\/api\/?$/,
-                                      ""
-                                    )
-                                  }${
-                                    product.image.startsWith("/") ? "" : "/"
-                                  }${product.image}`
-                            }
+                            src={imageUrl}
                             alt={product.name || "Product"}
                             className="h-16 w-16 rounded-xl bg-[#f5f5f0] object-cover"
                           />
@@ -698,11 +707,9 @@ const Checkout = () => {
                           <p className="line-clamp-2 text-sm font-semibold text-gray-800">
                             {product?.name || "Skincare Product"}
                           </p>
-
                           <p className="mt-1 text-xs text-gray-500">
                             Quantity: {quantity}
                           </p>
-
                           <p className="mt-1 text-sm font-semibold text-green-800">
                             ₹
                             {formatPrice(
