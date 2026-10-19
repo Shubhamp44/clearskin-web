@@ -6,14 +6,15 @@ import User from "../models/user.model.js";
 // ================= REGISTER =================
 export const registerUser = async (req, res) => {
   try {
-    const { fullName, email, phone, password, confirmPassword } = req.body;
+    const { fullName, email, phone, password, confirmPassword ,role } = req.body;
 
     if (
       !fullName?.trim() ||
       !email?.trim() ||
       !phone?.trim() ||
       !password ||
-      !confirmPassword
+      !confirmPassword ||
+      !role
     ) {
       return res.status(400).json({
         success: false,
@@ -57,7 +58,7 @@ export const registerUser = async (req, res) => {
       email: normalizedEmail,
       phone: phone.trim(),
       password: hashedPassword,
-      role: "user",
+      role: role === "admin" ? "admin" : "user"
     });
 
     return res.status(201).json({
