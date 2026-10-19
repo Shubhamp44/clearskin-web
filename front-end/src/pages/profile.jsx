@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import toast from "react-hot-toast";
 
 import api from "../services/api";
 import {
@@ -136,12 +137,15 @@ export default function Profile() {
     setSuccess("");
 
     if (!formData.fullName.trim()) {
-      setError("Please enter your full name.");
+      
+      toast.error("Please enter your full name.");
       return;
     }
 
     if (!formData.phone.trim()) {
-      setError("Please enter your mobile number.");
+      
+            toast.error("Please enter your mobile number..");
+
       return;
     }
 
@@ -156,22 +160,22 @@ export default function Profile() {
         !formData.newPassword ||
         !formData.confirmPassword
       ) {
-        setError("Please fill in all three password fields.");
+         toast.error("Please fill in all three password fields.");
         return;
       }
 
       if (formData.newPassword.length < 6) {
-        setError("New password must be at least 6 characters.");
+         toast.error("New password must be at least 6 characters.");
         return;
       }
 
       if (formData.newPassword !== formData.confirmPassword) {
-        setError("New password and confirm password do not match.");
+         toast.error("New password and confirm password do not match.");
         return;
       }
 
       if (formData.currentPassword === formData.newPassword) {
-        setError("New password must differ from current password.");
+         toast.error("New password must differ from current password.");
         return;
       }
     }
@@ -242,9 +246,10 @@ export default function Profile() {
       });
 
       setEditing(false);
-      setSuccess(
-        response.data.message || "Profile updated successfully!"
-      );
+      
+      toast.success(
+  response.data.message || "Profile updated successfully!"
+);
     } catch (err) {
       console.error("Profile update error:", err);
       console.error("Backend response:", err.response?.data);

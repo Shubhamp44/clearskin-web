@@ -1,6 +1,5 @@
-
-
 import { useCallback, useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import api from "../services/api";
 
 const useCart = () => {
@@ -14,6 +13,7 @@ const useCart = () => {
   // Token ko har request par read karo.
   const getAuthConfig = () => {
     const token = localStorage.getItem("token");
+
     if (!token) return null;
 
     return {
@@ -25,11 +25,12 @@ const useCart = () => {
 
   const getId = (item) => {
     const product = item?.product || item?.productId || item;
+
     return String(
       product?._id ||
-      product?.id ||
-      (typeof item?.product === "string" ? item.product : "") ||
-      (typeof item?.productId === "string" ? item.productId : "")
+        product?.id ||
+        (typeof item?.product === "string" ? item.product : "") ||
+        (typeof item?.productId === "string" ? item.productId : "")
     );
   };
 
@@ -65,6 +66,7 @@ const useCart = () => {
       setError("");
 
       const response = await api.get("/cart", config);
+
       setCartItems(extractItems(response.data));
     } catch (err) {
       console.error("Fetch cart error:", err.response?.data || err);
@@ -88,6 +90,7 @@ const useCart = () => {
 
     if (!config) {
       setError("Please login to add products to your cart.");
+      toast.error("Please login to add products to your cart.");
       return false;
     }
 
@@ -96,6 +99,7 @@ const useCart = () => {
 
     if (!productId) {
       setError("Product not found.");
+      toast.error("Product not found.");
       return false;
     }
 
@@ -106,19 +110,38 @@ const useCart = () => {
 
       const response = await api.post(
         "/cart/add",
-        { productId, quantity },
+        {
+          productId,
+          quantity,
+        },
         config
       );
 
-      setMessage(response.data?.message || "Product added to cart.");
+      const successMessage =
+        response.data?.message || "Product added to cart.";
+
+      setMessage(successMessage);
+
+      // Toast
+      toast.success("Product added to cart!");
+
       await fetchCart();
+
       window.dispatchEvent(new Event("cartUpdated"));
+
       return true;
     } catch (err) {
       console.error("Add to cart error:", err.response?.data || err);
-      setError(
-        err.response?.data?.message || "Unable to add product to cart."
-      );
+
+      const errorMessage =
+        err.response?.data?.message ||
+        "Unable to add product to cart.";
+
+      setError(errorMessage);
+
+      // Toast
+      toast.error(errorMessage);
+
       return false;
     } finally {
       setAddingId(null);
@@ -140,20 +163,38 @@ const useCart = () => {
       // Backend route must accept productId and quantity.
       const response = await api.put(
         "/cart/update",
-        { productId, quantity },
+        {
+          productId,
+          quantity,
+        },
         config
       );
 
-      setMessage(response.data?.message || "Cart updated.");
+      const successMessage =
+        response.data?.message || "Cart updated.";
+
+      setMessage(successMessage);
+
+      // Toast
+      toast.success("Cart updated!");
+
       await fetchCart();
+
       window.dispatchEvent(new Event("cartUpdated"));
+
       return true;
     } catch (err) {
       console.error("Update cart error:", err.response?.data || err);
-      setError(
+
+      const errorMessage =
         err.response?.data?.message ||
-          "Unable to update quantity. Check your backend route."
-      );
+        "Unable to update quantity. Check your backend route.";
+
+      setError(errorMessage);
+
+      // Toast
+      toast.error(errorMessage);
+
       return false;
     } finally {
       setUpdatingId(null);
@@ -177,16 +218,34 @@ const useCart = () => {
         config
       );
 
-      setMessage(response.data?.message || "Product removed from cart.");
+      const successMessage =
+        response.data?.message || "Product removed from cart.";
+
+      setMessage(successMessage);
+
+      // Toast
+      toast.success("Product removed from cart.");
+
       await fetchCart();
+
       window.dispatchEvent(new Event("cartUpdated"));
+
       return true;
     } catch (err) {
-      console.error("Remove cart item error:", err.response?.data || err);
-      setError(
-        err.response?.data?.message ||
-          "Unable to remove product. Check your backend route."
+      console.error(
+        "Remove cart item error:",
+        err.response?.data || err
       );
+
+      const errorMessage =
+        err.response?.data?.message ||
+        "Unable to remove product. Check your backend route.";
+
+      setError(errorMessage);
+
+      // Toast
+      toast.error(errorMessage);
+
       return false;
     } finally {
       setUpdatingId(null);
@@ -197,10 +256,14 @@ const useCart = () => {
     fetchCart();
 
     const handleCartUpdated = () => fetchCart();
+
     window.addEventListener("cartUpdated", handleCartUpdated);
 
     return () => {
-      window.removeEventListener("cartUpdated", handleCartUpdated);
+      window.removeEventListener(
+        "cartUpdated",
+        handleCartUpdated
+      );
     };
   }, [fetchCart]);
 

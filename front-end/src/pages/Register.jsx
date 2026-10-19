@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
-
+import toast from "react-hot-toast";
 import {
   Leaf,
   Eye,
@@ -56,82 +56,85 @@ export default function Register() {
 
   // Handle registration
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    clearMessages();
-    setValidationError("");
+  clearMessages();
+  setValidationError("");
 
-    if (!formData.fullName.trim()) {
-      setValidationError("Please enter your full name.");
-      return;
-    }
+  if (!formData.fullName.trim()) {
+    toast.error("Please enter your full name.");
+    return;
+  }
 
-    if (!formData.email.trim()) {
-      setValidationError("Please enter your email address.");
-      return;
-    }
+  if (!formData.email.trim()) {
+    toast.error("Please enter your email address.");
+    return;
+  }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      setValidationError("Please enter a valid email address.");
-      return;
-    }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+    toast.error("Please enter a valid email address.");
+    return;
+  }
 
-    if (!formData.phone.trim()) {
-      setValidationError("Please enter your phone number.");
-      return;
-    }
+  if (!formData.phone.trim()) {
+    toast.error("Please enter your phone number.");
+    return;
+  }
 
-    if (!/^[0-9]{10,15}$/.test(formData.phone.trim())) {
-      setValidationError(
-        "Please enter a valid phone number (10–15 digits)."
-      );
-      return;
-    }
+  if (!/^[0-9]{10,15}$/.test(formData.phone.trim())) {
+    toast.error("Please enter a valid phone number (10–15 digits).");
+    return;
+  }
 
-    if (formData.password.length < 6) {
-      setValidationError(
-        "Password must contain at least 6 characters."
-      );
-      return;
-    }
+  if (formData.password.length < 6) {
+    toast.error("Password must contain at least 6 characters.");
+    return;
+  }
 
-    if (formData.password !== formData.confirmPassword) {
-      setValidationError("Passwords do not match.");
-      return;
-    }
+  if (formData.password !== formData.confirmPassword) {
+    toast.error("Passwords do not match.");
+    return;
+  }
 
-    try {
-      const result = await register({
-        fullName: formData.fullName.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        password: formData.password,
-        confirmPassword: formData.confirmPassword,
-        role: formData.role,
+  try {
+    const result = await register({
+      fullName: formData.fullName.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+      role: formData.role,
+    });
+
+    if (result?.success) {
+      toast.success("Registration successful! Please login.");
+
+      setFormData({
+        fullName: "",
+        email: "",
+        phone: "",
+        password: "",
+        confirmPassword: "",
+        role: "user",
       });
 
-      if (result?.success) {
-        setFormData({
-          fullName: "",
-          email: "",
-          phone: "",
-          password: "",
-          confirmPassword: "",
-          role: "user",
-        });
-
-        setTimeout(() => {
-          navigate("/login", { replace: true });
-        }, 1200);
-      }
-    } catch (err) {
-      setValidationError(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Registration failed. Please try again."
+      setTimeout(() => {
+        navigate("/login", { replace: true });
+      }, 1200);
+    } else {
+      toast.error(
+        result?.message || "Registration failed. Please try again."
       );
     }
-  };
+  } catch (err) {
+    const message =
+      err?.response?.data?.message ||
+      err?.message ||
+      "Registration failed. Please try again.";
+
+    toast.error(message);
+  }
+};
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#faf8f4] px-4 py-8 sm:py-12">

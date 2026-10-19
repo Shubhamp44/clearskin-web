@@ -1,9 +1,9 @@
 
 
 
-
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import api from "../services/api";
 
 const getToken = () => localStorage.getItem("token");
@@ -74,8 +74,6 @@ export default function useWishlist() {
         },
       });
 
-      console.log("Wishlist API response:", response.data);
-
       const items = extractProducts(response.data);
 
       setProducts(items);
@@ -92,14 +90,16 @@ export default function useWishlist() {
       setProducts([]);
       setWishlistIds([]);
 
-      if (error.response?.status === 401) {
-        setWishlistError("Session expired. Please login again.");
-      } else {
-        setWishlistError(
-          error.response?.data?.message ||
-            "Unable to load wishlist products."
-        );
-      }
+      const errorMessage =
+        error.response?.status === 401
+          ? "Session expired. Please login again."
+          : error.response?.data?.message ||
+            "Unable to load wishlist products.";
+
+      setWishlistError(errorMessage);
+
+      // Toast only for API errors; not for missing login on initial load
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -137,8 +137,12 @@ export default function useWishlist() {
       const token = getToken();
 
       if (!token) {
-        setWishlistError("Please login to manage your wishlist.");
+        const errorMessage = "Please login to manage your wishlist.";
+
+        setWishlistError(errorMessage);
+        toast.error(errorMessage);
         navigate("/login");
+
         return false;
       }
 
@@ -167,7 +171,10 @@ export default function useWishlist() {
             prev.filter((id) => id !== productId)
           );
 
-          setWishlistMessage("Product removed from wishlist.");
+          const successMessage = "Product removed from wishlist.";
+
+          setWishlistMessage(successMessage);
+          toast.success(successMessage);
         } else {
           const response = await api.post(
             "/wishlist/add",
@@ -175,19 +182,22 @@ export default function useWishlist() {
             config
           );
 
+          const successMessage =
+            response.data?.message || "Product added to wishlist!";
+
           setWishlistIds((prev) =>
             prev.includes(productId) ? prev : [...prev, productId]
           );
 
-          setWishlistMessage(
-            response.data?.message || "Product added to wishlist!"
-          );
+          setWishlistMessage(successMessage);
+          toast.success(successMessage);
 
           // Fetch complete product data from backend
           await fetchWishlist();
         }
 
         window.dispatchEvent(new Event("wishlistUpdated"));
+
         return true;
       } catch (error) {
         console.error(
@@ -195,10 +205,12 @@ export default function useWishlist() {
           error.response?.data || error.message
         );
 
-        setWishlistError(
+        const errorMessage =
           error.response?.data?.message ||
-            "Wishlist update failed. Please try again."
-        );
+          "Wishlist update failed. Please try again.";
+
+        setWishlistError(errorMessage);
+        toast.error(errorMessage);
 
         return false;
       } finally {
@@ -215,11 +227,18 @@ export default function useWishlist() {
     async (product) => {
       const productId = getProductId(product);
 
-      if (!productId) return false;
+      if (!productId) {
+        toast.error("Product not found.");
+        return false;
+      }
 
       if (wishlistIds.includes(productId)) {
-        setWishlistMessage("Product is already in your wishlist.");
+        const message = "Product is already in your wishlist.";
+
+        setWishlistMessage(message);
         setWishlistError("");
+        toast(message);
+
         return true;
       }
 
@@ -249,7 +268,10 @@ export default function useWishlist() {
         (item) => getProductId(item) === String(productId)
       );
 
-      if (!product) return false;
+      if (!product) {
+        toast.error("Wishlist product not found.");
+        return false;
+      }
 
       return removeFromWishlist(product);
     },

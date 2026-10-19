@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+import toast from "react-hot-toast";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -30,8 +31,10 @@ const Login = () => {
     });
 
     if (!result.success) {
+      toast.error("Something went wrong!");
       return;
     }
+  toast.success("Login successful! Welcome to Clear Skin.");
 
     const user = result.user;
 

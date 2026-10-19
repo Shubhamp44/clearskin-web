@@ -1,6 +1,8 @@
 
 
+
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import api from "../services/api";
 
 const useCategories = () => {
@@ -41,7 +43,11 @@ const useCategories = () => {
 
         console.error("Categories fetch error:", err);
 
-        setError("Could not load categories. Please try again.");
+        const errorMessage =
+          "Could not load categories. Please try again.";
+
+        setError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -62,6 +68,7 @@ const useCategories = () => {
   };
 };
 
-const axiosCanceled = (err) => err.name === "CanceledError";
+const axiosCanceled = (err) =>
+  err.name === "CanceledError";
 
 export default useCategories;
