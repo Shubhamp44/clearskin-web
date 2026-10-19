@@ -438,7 +438,7 @@ export default function Profile() {
                   <div className="relative">
                     <UserRound
                       size={18}
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-900"
                     />
                     <input
                       id="fullName"
@@ -458,14 +458,14 @@ export default function Profile() {
                 <div>
                   <label
                     htmlFor="email"
-                    className="mb-2 block text-sm font-medium text-stone-700"
+                    className="mb-2 block text-sm font-medium text-gray-900"
                   >
                     Email Address
                   </label>
                   <div className="relative">
                     <Mail
                       size={18}
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-900"
                     />
                     <input
                       id="email"
@@ -478,7 +478,7 @@ export default function Profile() {
                       className={inputClass}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-stone-400">
+                  <p className="mt-1 text-xs text-gray-900">
                     Email cannot be changed here.
                   </p>
                 </div>
@@ -486,7 +486,7 @@ export default function Profile() {
                 <div>
                   <label
                     htmlFor="phone"
-                    className="mb-2 block text-sm font-medium text-stone-700"
+                    className="mb-2 block text-sm font-medium text-gray-900"
                   >
                     Mobile Number
                   </label>
@@ -511,7 +511,7 @@ export default function Profile() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-stone-700">
+                  <label className="mb-2 block text-sm font-medium text-gray-900">
                     Account Role
                   </label>
                   <div className="flex min-h-[46px] items-center gap-3 rounded-xl border border-stone-200 bg-stone-100 px-4 py-3">

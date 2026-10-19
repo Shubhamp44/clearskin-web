@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -22,93 +21,76 @@ import useAllProducts from "../hooks/useAllProducts";
 import useCategories from "../hooks/useCategories";
 import getImageUrl from "../utils/imageUtils";
 
+const getSavedUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem("user") || "null");
+  } catch {
+    return null;
+  }
+};
+
+const getProductName = (product) =>
+  String(
+    product?.name || product?.title || product?.productName || ""
+  ).trim();
+
+const getCategoryName = (category) =>
+  String(category?.name || category?.title || "").trim();
+
+const normalizeList = (data, keys = []) => {
+  if (Array.isArray(data)) return data;
+
+  for (const key of keys) {
+    if (Array.isArray(data?.[key])) return data[key];
+  }
+
+  if (Array.isArray(data?.data)) return data.data;
+
+  for (const key of keys) {
+    if (Array.isArray(data?.data?.[key])) {
+      return data.data[key];
+    }
+  }
+
+  return [];
+};
+
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
   const { isDark, toggleTheme } = useTheme();
 
-  const { products: fetchedProducts = [], loading: productsLoading } =
-    useAllProducts();
+  const {
+    products: fetchedProducts = [],
+    loading: productsLoading = false,
+  } = useAllProducts();
 
   const {
     categories: fetchedCategories = [],
-    loading: categoriesLoading,
+    loading: categoriesLoading = false,
   } = useCategories();
 
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState(getSavedUser);
 
   const token = localStorage.getItem("token");
+  const isLoggedIn = Boolean(token && user);
+  const isAdmin = isLoggedIn && user?.role === "admin";
 
-  const [user, setUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "null");
-    } catch {
-      return null;
-    }
-  });
+  const products = useMemo(
+    () =>
+      normalizeList(fetchedProducts, ["products"]).filter(Boolean),
+    [fetchedProducts]
+  );
 
-  const isAdmin = user?.role === "admin";
-
-  useEffect(() => {
-    const updateUser = () => {
-      try {
-        setUser(JSON.parse(localStorage.getItem("user") || "null"));
-      } catch {
-        setUser(null);
-      }
-    };
-
-    window.addEventListener("storage", updateUser);
-
-    return () => window.removeEventListener("storage", updateUser);
-  }, []);
-
-  const products = useMemo(() => {
-    if (Array.isArray(fetchedProducts)) return fetchedProducts;
-
-    if (Array.isArray(fetchedProducts?.products)) {
-      return fetchedProducts.products;
-    }
-
-    if (Array.isArray(fetchedProducts?.data?.products)) {
-      return fetchedProducts.data.products;
-    }
-
-    if (Array.isArray(fetchedProducts?.data)) {
-      return fetchedProducts.data;
-    }
-
-    return [];
-  }, [fetchedProducts]);
-
-  const categories = useMemo(() => {
-    if (Array.isArray(fetchedCategories)) return fetchedCategories;
-
-    if (Array.isArray(fetchedCategories?.categories)) {
-      return fetchedCategories.categories;
-    }
-
-    if (Array.isArray(fetchedCategories?.data?.categories)) {
-      return fetchedCategories.data.categories;
-    }
-
-    if (Array.isArray(fetchedCategories?.data)) {
-      return fetchedCategories.data;
-    }
-
-    return [];
-  }, [fetchedCategories]);
-
-  const getProductName = (product) =>
-    String(
-      product?.name || product?.title || product?.productName || ""
-    ).trim();
-
-  const getCategoryName = (category) =>
-    String(category?.name || category?.title || "").trim();
+  const categories = useMemo(
+    () =>
+      normalizeList(fetchedCategories, ["categories"]).filter(Boolean),
+    [fetchedCategories]
+  );
 
   const query = search.trim().toLowerCase();
 
@@ -133,35 +115,68 @@ const Navbar = () => {
   }, [categories, query]);
 
   useEffect(() => {
+    const updateUser = () => {
+      setUser(getSavedUser());
+    };
+
+    window.addEventListener("storage", updateUser);
+    window.addEventListener("authChanged", updateUser);
+
+    updateUser();
+
+    return () => {
+      window.removeEventListener("storage", updateUser);
+      window.removeEventListener("authChanged", updateUser);
+    };
+  }, []);
+
+  useEffect(() => {
     setShowSuggestions(false);
     setMobileMenuOpen(false);
   }, [location.pathname, location.search]);
 
+  useEffect(() => {
+    const closeSuggestions = (event) => {
+      if (event.key === "Escape") {
+        setShowSuggestions(false);
+      }
+    };
+
+    window.addEventListener("keydown", closeSuggestions);
+
+    return () => {
+      window.removeEventListener("keydown", closeSuggestions);
+    };
+  }, []);
+
+  const closeSearch = () => {
+    setShowSuggestions(false);
+    setSearch("");
+  };
+
   const openProduct = (product) => {
     const id = product?._id || product?.id;
+    const name = getProductName(product);
+
+    closeSearch();
 
     if (id) {
       navigate(`/products/${id}`);
-    } else {
-      navigate(
-        `/products?search=${encodeURIComponent(getProductName(product))}`
-      );
+    } else if (name) {
+      navigate(`/products?search=${encodeURIComponent(name)}`);
     }
-
-    setShowSuggestions(false);
-    setSearch("");
   };
 
   const openCategory = (category) => {
     const categoryId = category?._id || category?.id;
     const categoryName = getCategoryName(category);
+    const value = categoryId || categoryName;
 
-    navigate(
-      `/products?category=${encodeURIComponent(categoryId || categoryName)}`
-    );
+    closeSearch();
 
-    setShowSuggestions(false);
-    setSearch("");
+    if (value) {
+      navigate(`/products?category=${encodeURIComponent(value)}`);
+    }
   };
 
   const handleSearch = (event) => {
@@ -173,15 +188,14 @@ const Navbar = () => {
 
     const normalized = value.toLowerCase();
 
-    const productMatch = products.find(
-      (product) => getProductName(product).toLowerCase() === normalized
-    );
-
-    const partialProductMatch = products.find((product) =>
-      getProductName(product).toLowerCase().includes(normalized)
-    );
-
-    const matchedProduct = productMatch || partialProductMatch;
+    const matchedProduct =
+      products.find(
+        (product) =>
+          getProductName(product).toLowerCase() === normalized
+      ) ||
+      products.find((product) =>
+        getProductName(product).toLowerCase().includes(normalized)
+      );
 
     if (matchedProduct) {
       openProduct(matchedProduct);
@@ -189,7 +203,8 @@ const Navbar = () => {
     }
 
     const matchedCategory = categories.find(
-      (category) => getCategoryName(category).toLowerCase() === normalized
+      (category) =>
+        getCategoryName(category).toLowerCase() === normalized
     );
 
     if (matchedCategory) {
@@ -197,15 +212,8 @@ const Navbar = () => {
       return;
     }
 
+    closeSearch();
     navigate(`/products?search=${encodeURIComponent(value)}`);
-
-    setShowSuggestions(false);
-    setSearch("");
-  };
-
-  const clearSearch = () => {
-    setSearch("");
-    setShowSuggestions(false);
   };
 
   const navLinks = [
@@ -231,9 +239,15 @@ const Navbar = () => {
     ? "border-[#3A5140] bg-[#19291F] text-[#EDF3E9]"
     : "border-green-200 bg-white text-gray-800";
 
-  const linkClass = (path) =>
-    `rounded-full px-3 py-2 text-sm font-medium transition ${
-      location.pathname === path
+  const linkClass = (path) => {
+    const active =
+      path === "/"
+        ? location.pathname === "/"
+        : location.pathname === path ||
+          location.pathname.startsWith(`${path}/`);
+
+    return `rounded-full px-3 py-2 text-sm font-medium transition-colors ${
+      active
         ? isDark
           ? "bg-[#304638] text-white"
           : "bg-white/80 text-green-800"
@@ -241,9 +255,189 @@ const Navbar = () => {
           ? "text-[#DCE8D8] hover:bg-[#263D2D]"
           : "text-gray-700 hover:bg-white/70 hover:text-green-800"
     }`;
+  };
 
   const searchInputClass =
-    "navbar-search-input w-full min-w-0 flex-1 !border-0 !outline-none !ring-0 !shadow-none bg-transparent text-sm focus:!border-0 focus:!outline-none focus:!ring-0 focus:!shadow-none placeholder:opacity-60";
+    "navbar-search-input w-full min-w-0 flex-1 border-0 bg-transparent text-sm outline-none ring-0 shadow-none placeholder:opacity-60 focus:border-0 focus:outline-none focus:ring-0 focus:shadow-none";
+
+  const renderSuggestions = (mobile = false) => {
+    if (!showSuggestions || !query) return null;
+
+    return (
+      <div
+        className={`absolute left-0 right-0 top-full z-[60] mt-2 max-h-[420px] overflow-y-auto rounded-2xl border p-2 shadow-xl ${searchSurface}`}
+      >
+        {productsLoading || categoriesLoading ? (
+          <div className="flex items-center justify-center gap-2 p-5 text-sm">
+            <LoaderCircle size={18} className="animate-spin" />
+            Searching...
+          </div>
+        ) : (
+          <>
+            {matchingProducts.length > 0 && (
+              <div className="p-1">
+                {!mobile && (
+                  <p className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-wider opacity-60">
+                    Products
+                  </p>
+                )}
+
+                {matchingProducts.map((product, index) => {
+                  const name = getProductName(product);
+                  const image =
+                    product?.image ||
+                    product?.imageUrl ||
+                    product?.img;
+
+                  return (
+                    <button
+                      key={
+                        product?._id ||
+                        product?.id ||
+                        `${name}-${index}`
+                      }
+                      type="button"
+                      onMouseDown={(event) =>
+                        event.preventDefault()
+                      }
+                      onClick={() => openProduct(product)}
+                      className={`flex w-full items-center gap-3 rounded-xl p-2 text-left transition ${hoverColor}`}
+                    >
+                      <img
+                        src={getImageUrl(image)}
+                        alt={name}
+                        loading="lazy"
+                        className={`${
+                          mobile ? "h-11 w-11" : "h-12 w-12"
+                        } shrink-0 rounded-lg bg-white object-cover`}
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
+                        }}
+                      />
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {name || "Unnamed product"}
+                        </span>
+
+                        {product?.price != null && (
+                          <span className="mt-1 block text-xs opacity-70">
+                            ₹{product.price}
+                          </span>
+                        )}
+                      </span>
+
+                      <ArrowRight
+                        size={16}
+                        className="shrink-0 opacity-50"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {matchingCategories.length > 0 && (
+              <div
+                className={`p-1 ${
+                  matchingProducts.length
+                    ? `mt-1 border-t ${borderColor}`
+                    : ""
+                }`}
+              >
+                {!mobile && (
+                  <p className="px-2 pb-2 pt-2 text-xs font-semibold uppercase tracking-wider opacity-60">
+                    Categories
+                  </p>
+                )}
+
+                {matchingCategories.map((category, index) => (
+                  <button
+                    key={
+                      category?._id ||
+                      category?.id ||
+                      `${getCategoryName(category)}-${index}`
+                    }
+                    type="button"
+                    onMouseDown={(event) =>
+                      event.preventDefault()
+                    }
+                    onClick={() => openCategory(category)}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition ${hoverColor}`}
+                  >
+                    <span className="truncate">
+                      {getCategoryName(category)}
+                    </span>
+
+                    <ArrowRight
+                      size={15}
+                      className="ml-2 shrink-0 opacity-50"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {matchingProducts.length === 0 &&
+              matchingCategories.length === 0 && (
+                <div className="p-5 text-center">
+                  <p className="text-sm opacity-70">
+                    No products or categories found.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleSearch}
+                    className="mt-2 text-sm font-semibold text-green-600 hover:underline"
+                  >
+                    Search all products
+                  </button>
+                </div>
+              )}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderSearch = (mobile = false) => (
+    <div className="relative">
+      <form
+        onSubmit={handleSearch}
+        role="search"
+        className={`flex items-center gap-2 rounded-full border px-4 py-2.5 ${searchSurface}`}
+      >
+        <Search size={18} className="shrink-0 opacity-60" />
+
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setShowSuggestions(true);
+          }}
+          onFocus={() => setShowSuggestions(true)}
+          placeholder="Search skincare products..."
+          aria-label="Search products and categories"
+          aria-expanded={showSuggestions && Boolean(query)}
+          className={searchInputClass}
+        />
+
+        {search && (
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={closeSearch}
+            className="shrink-0 opacity-60 transition hover:opacity-100"
+          >
+            <X size={16} />
+          </button>
+        )}
+      </form>
+
+      {renderSuggestions(mobile)}
+    </div>
+  );
 
   return (
     <header
@@ -251,15 +445,15 @@ const Navbar = () => {
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Main Navbar */}
-        <div className="flex min-h-[76px] items-center justify-between gap-4">
+        <div className="flex min-h-[76px] items-center justify-between gap-2 sm:gap-4">
           {/* Logo */}
           <Link
             to="/"
-            className="flex shrink-0 items-center gap-2"
+            className="flex min-w-0 shrink-0 items-center gap-2"
             aria-label="Clear Skin home"
           >
             <span
-              className={`flex h-11 w-11 items-center justify-center rounded-full ${
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full sm:h-11 sm:w-11 ${
                 isDark
                   ? "bg-[#416B49] text-[#EDF3E9]"
                   : "bg-green-700 text-white"
@@ -268,13 +462,13 @@ const Navbar = () => {
               <Leaf size={25} />
             </span>
 
-            <span className="leading-tight">
-              <span className="block text-xl font-bold tracking-tight">
+            <span className="min-w-0 leading-tight">
+              <span className="block whitespace-nowrap text-lg font-bold tracking-tight sm:text-xl">
                 Clear Skin
               </span>
 
               <span
-                className={`text-[10px] tracking-[1.5px] ${
+                className={`hidden text-[10px] tracking-[1.5px] sm:block ${
                   isDark ? "text-[#B8C7B8]" : "text-gray-600"
                 }`}
               >
@@ -284,7 +478,7 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden items-center gap-1 lg:flex">
+          <nav className="hidden shrink-0 items-center gap-1 lg:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.path}
@@ -297,167 +491,12 @@ const Navbar = () => {
           </nav>
 
           {/* Desktop Search */}
-          <div className="hidden min-w-0 flex-1 md:block md:max-w-sm lg:max-w-md">
-            <div className="relative">
-              <form
-                onSubmit={handleSearch}
-                className={`flex items-center gap-2 rounded-full border px-4 py-2.5 ${searchSurface}`}
-              >
-                <Search size={18} className="shrink-0 opacity-60" />
-
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(event) => {
-                    setSearch(event.target.value);
-                    setShowSuggestions(true);
-                  }}
-                  onFocus={() => setShowSuggestions(true)}
-                  placeholder="Search skincare products..."
-                  aria-label="Search products and categories"
-                  className={searchInputClass}
-                />
-
-                {search && (
-                  <button
-                    type="button"
-                    aria-label="Clear search"
-                    onClick={clearSearch}
-                    className="shrink-0 opacity-60 transition hover:opacity-100"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
-              </form>
-
-              {showSuggestions && query && (
-                <div
-                  className={`absolute left-0 right-0 top-full z-[60] mt-2 max-h-[420px] overflow-y-auto rounded-2xl border p-2 shadow-xl ${searchSurface}`}
-                >
-                  {productsLoading || categoriesLoading ? (
-                    <div className="flex items-center justify-center gap-2 p-5 text-sm">
-                      <LoaderCircle size={18} className="animate-spin" />
-                      Searching...
-                    </div>
-                  ) : (
-                    <>
-                      {matchingProducts.length > 0 && (
-                        <div className="p-1">
-                          <p className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-wider opacity-60">
-                            Products
-                          </p>
-
-                          {matchingProducts.map((product, index) => {
-                            const productName = getProductName(product);
-                            const image =
-                              product?.image ||
-                              product?.imageUrl ||
-                              product?.img;
-
-                            return (
-                              <button
-                                key={
-                                  product._id ||
-                                  product.id ||
-                                  `${productName}-${index}`
-                                }
-                                type="button"
-                                onMouseDown={(event) =>
-                                  event.preventDefault()
-                                }
-                                onClick={() => openProduct(product)}
-                                className={`flex w-full items-center gap-3 rounded-xl p-2 text-left transition ${hoverColor}`}
-                              >
-                                <img
-                                  src={getImageUrl(image)}
-                                  alt={productName}
-                                  className="h-12 w-12 shrink-0 rounded-lg bg-white object-cover"
-                                  onError={(event) => {
-                                    event.currentTarget.style.display = "none";
-                                  }}
-                                />
-
-                                <span className="min-w-0 flex-1">
-                                  <span className="block truncate text-sm font-medium">
-                                    {productName || "Unnamed product"}
-                                  </span>
-
-                                  {product.price != null && (
-                                    <span className="mt-1 block text-xs opacity-70">
-                                      ₹{product.price}
-                                    </span>
-                                  )}
-                                </span>
-
-                                <ArrowRight
-                                  size={16}
-                                  className="shrink-0 opacity-50"
-                                />
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {matchingCategories.length > 0 && (
-                        <div
-                          className={`border-t ${borderColor} p-1 ${
-                            matchingProducts.length ? "mt-1" : ""
-                          }`}
-                        >
-                          <p className="px-2 pb-2 pt-2 text-xs font-semibold uppercase tracking-wider opacity-60">
-                            Categories
-                          </p>
-
-                          {matchingCategories.map((category, index) => (
-                            <button
-                              key={
-                                category._id ||
-                                category.id ||
-                                `${getCategoryName(category)}-${index}`
-                              }
-                              type="button"
-                              onMouseDown={(event) =>
-                                event.preventDefault()
-                              }
-                              onClick={() => openCategory(category)}
-                              className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition ${hoverColor}`}
-                            >
-                              <span>{getCategoryName(category)}</span>
-                              <ArrowRight
-                                size={15}
-                                className="opacity-50"
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {matchingProducts.length === 0 &&
-                        matchingCategories.length === 0 && (
-                          <div className="p-5 text-center">
-                            <p className="text-sm opacity-70">
-                              No products or categories found.
-                            </p>
-
-                            <button
-                              type="button"
-                              onClick={handleSearch}
-                              className="mt-2 text-sm font-semibold text-green-600 hover:underline"
-                            >
-                              Search all products
-                            </button>
-                          </div>
-                        )}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+          <div className="hidden min-w-0 flex-1 md:block md:max-w-xs lg:max-w-sm xl:max-w-md">
+            {renderSearch()}
           </div>
 
           {/* Action Icons */}
-          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
             {/* Theme Toggle */}
             <button
               type="button"
@@ -466,7 +505,7 @@ const Navbar = () => {
                 isDark ? "Switch to light theme" : "Switch to dark theme"
               }
               title={isDark ? "Light mode" : "Dark mode"}
-              className={`flex h-10 w-10 items-center justify-center rounded-full transition ${hoverColor}`}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition sm:h-10 sm:w-10 ${hoverColor}`}
             >
               {isDark ? <Sun size={19} /> : <Moon size={19} />}
             </button>
@@ -476,7 +515,7 @@ const Navbar = () => {
               to="/wishlist"
               aria-label="Wishlist"
               title="Wishlist"
-              className={`relative flex h-10 w-10 items-center justify-center rounded-full transition ${hoverColor}`}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition sm:h-10 sm:w-10 ${hoverColor}`}
             >
               <Heart size={20} />
             </Link>
@@ -486,25 +525,34 @@ const Navbar = () => {
               to="/cart"
               aria-label="Shopping cart"
               title="Shopping cart"
-              className={`relative flex h-10 w-10 items-center justify-center rounded-full transition ${hoverColor}`}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition sm:h-10 sm:w-10 ${hoverColor}`}
             >
               <ShoppingCart size={20} />
             </Link>
 
             {/* Profile / Login */}
             <Link
-              to={token ? "/profile" : "/login"}
-              aria-label={token ? "Profile" : "Login"}
-              title={token ? "Profile" : "Login"}
-              className={`hidden h-10 w-10 items-center justify-center rounded-full transition sm:flex ${hoverColor}`}
+              to={isLoggedIn ? "/profile" : "/login"}
+              aria-label={isLoggedIn ? "Profile" : "Login"}
+              title={isLoggedIn ? "Profile" : "Login"}
+              className={`hidden h-9 w-9 shrink-0 items-center justify-center rounded-full transition sm:flex sm:h-10 sm:w-10 ${hoverColor}`}
             >
-              {token ? <UserRound size={20} /> : <LogIn size={20} />}
+              {isLoggedIn ? (
+                <UserRound size={20} />
+              ) : (
+                <LogIn size={20} />
+              )}
             </Link>
 
-            {/* Admin Dashboard */}
+            {/* Admin Dashboard - wider screens only */}
             {isAdmin && (
-              <Link to="/admin" className={linkClass("/admin")}>
-                Admin Dashboard
+              <Link
+                to="/admin"
+                title="Admin Dashboard"
+                aria-label="Open Admin Dashboard"
+                className={`${linkClass("/admin")} hidden max-w-[150px] items-center justify-center whitespace-nowrap xl:inline-flex`}
+              >
+                <span className="truncate">Admin Dashboard</span>
               </Link>
             )}
 
@@ -514,140 +562,31 @@ const Navbar = () => {
               onClick={() =>
                 setMobileMenuOpen((previous) => !previous)
               }
-              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-label={
+                mobileMenuOpen ? "Close menu" : "Open menu"
+              }
               aria-expanded={mobileMenuOpen}
-              className={`flex h-10 w-10 items-center justify-center rounded-full transition md:hidden ${hoverColor}`}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition md:hidden sm:h-10 sm:w-10 ${hoverColor}`}
             >
-              {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+              {mobileMenuOpen ? (
+                <X size={22} />
+              ) : (
+                <Menu size={20} />
+              )}
             </button>
           </div>
         </div>
 
         {/* Mobile Search */}
         <div className="relative pb-3 md:hidden">
-          <form
-            onSubmit={handleSearch}
-            className={`flex items-center gap-2 rounded-full border px-4 py-2.5 ${searchSurface}`}
-          >
-            <Search size={18} className="shrink-0 opacity-60" />
-
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setShowSuggestions(true);
-              }}
-              onFocus={() => setShowSuggestions(true)}
-              placeholder="Search skincare products..."
-              aria-label="Search products and categories"
-              className={searchInputClass}
-            />
-
-            {search && (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={clearSearch}
-                className="shrink-0 opacity-60"
-              >
-                <X size={16} />
-              </button>
-            )}
-          </form>
-
-          {showSuggestions && query && (
-            <div
-              className={`absolute left-0 right-0 top-full z-[60] mt-1 max-h-[360px] overflow-y-auto rounded-2xl border p-2 shadow-xl ${searchSurface}`}
-            >
-              {productsLoading || categoriesLoading ? (
-                <div className="flex items-center justify-center gap-2 p-4 text-sm">
-                  <LoaderCircle size={18} className="animate-spin" />
-                  Searching...
-                </div>
-              ) : (
-                <>
-                  {matchingProducts.map((product, index) => (
-                    <button
-                      key={
-                        product._id ||
-                        product.id ||
-                        `${getProductName(product)}-${index}`
-                      }
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => openProduct(product)}
-                      className={`flex w-full items-center gap-3 rounded-xl p-2 text-left ${hoverColor}`}
-                    >
-                      <img
-                        src={getImageUrl(
-                          product.image || product.imageUrl || product.img
-                        )}
-                        alt={getProductName(product)}
-                        className="h-11 w-11 shrink-0 rounded-lg bg-white object-cover"
-                        onError={(event) => {
-                          event.currentTarget.style.display = "none";
-                        }}
-                      />
-
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">
-                          {getProductName(product)}
-                        </span>
-
-                        {product.price != null && (
-                          <span className="text-xs opacity-70">
-                            ₹{product.price}
-                          </span>
-                        )}
-                      </span>
-
-                      <ArrowRight size={15} className="opacity-50" />
-                    </button>
-                  ))}
-
-                  {matchingCategories.map((category, index) => (
-                    <button
-                      key={
-                        category._id ||
-                        category.id ||
-                        `${getCategoryName(category)}-${index}`
-                      }
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => openCategory(category)}
-                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm ${hoverColor}`}
-                    >
-                      <span>{getCategoryName(category)}</span>
-                      <ArrowRight size={15} className="opacity-50" />
-                    </button>
-                  ))}
-
-                  {matchingProducts.length === 0 &&
-                    matchingCategories.length === 0 && (
-                      <div className="p-4 text-center">
-                        <p className="text-sm opacity-70">
-                          No products or categories found.
-                        </p>
-
-                        <button
-                          type="button"
-                          onClick={handleSearch}
-                          className="mt-2 text-sm font-semibold text-green-600 hover:underline"
-                        >
-                          Search all products
-                        </button>
-                      </div>
-                    )}
-                </>
-              )}
-            </div>
-          )}
+          {renderSearch(true)}
         </div>
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className={`border-t ${borderColor} py-3 md:hidden`}>
+          <div
+            className={`border-t ${borderColor} py-3 md:hidden`}
+          >
             <nav className="flex flex-col gap-1">
               {navLinks.map((link) => (
                 <Link
@@ -661,20 +600,21 @@ const Navbar = () => {
               ))}
 
               <Link
-                to={token ? "/profile" : "/login"}
+                to={isLoggedIn ? "/profile" : "/login"}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`rounded-full px-3 py-2 text-sm font-medium transition ${hoverColor}`}
               >
-                {token ? "My Profile" : "Login / Register"}
+                {isLoggedIn ? "My Profile" : "Login / Register"}
               </Link>
 
               {isAdmin && (
                 <Link
                   to="/admin"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`rounded-full px-3 py-2 text-sm font-medium transition ${hoverColor}`}
+                  className={`flex w-full items-center rounded-full px-3 py-2 text-sm font-medium transition ${hoverColor}`}
                 >
                   Admin Dashboard
+                  <ArrowRight size={16} className="ml-auto shrink-0" />
                 </Link>
               )}
             </nav>

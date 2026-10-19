@@ -21,6 +21,7 @@ import {
 
 import api from "../services/api";
 import useCart from "../hooks/useCart";
+import toast from "react-hot-toast";
 
 const Checkout = () => {
   const { cartItems = [], loading, error: cartError, fetchCart } = useCart();
@@ -116,6 +117,7 @@ const Checkout = () => {
     if (code !== "SAVE10") {
       setAppliedCoupon("");
       setCouponError("Invalid coupon code. Try SAVE10.");
+      toast.error("invlid coupon code. try SAVE10 ")
       return;
     }
 
